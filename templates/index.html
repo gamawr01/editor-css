@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>CSS Live Lab</title>
+<style>
+  :root{
+    --bg-0:#161616; --bg-1:#1d1d1d; --bg-2:#232323;
+    --line:#333333; --text:#e4e4e4; --text-dim:#8a8a8a;
+    --accent:#0b3d91; --accent-contrast:#ffffff; --danger:#e2685f;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0; background:var(--bg-0); color:var(--text); font-family:var(--sans); display:flex; flex-direction:column; overflow:hidden;}
+
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:var(--bg-1); border-bottom:1px solid var(--line); flex:none; position:relative;}
+  .brand{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:13px;}
+  .brand .dot{width:9px;height:9px;border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent);}
+  .brand span.sub{color:var(--text-dim); font-weight:400;}
+  .toolbar{display:flex; gap:8px; align-items:center;}
+  .btn{appearance:none; background:var(--bg-2); border:1px solid var(--line); color:var(--text); font-family:var(--sans); font-size:12.5px; padding:7px 12px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; transition:border-color .15s, background .15s;}
+  .btn:hover{border-color:#4a4a4a; background:#282828;}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-contrast); font-weight:600;}
+  .btn.primary:hover{background:#275fb0;}
+  .btn.ghost{background:transparent;}
+  .btn.small{padding:5px 9px; font-size:11.5px;}
+  .btn input[type=file]{display:none;}
+  .help-btn{width:34px; height:34px; padding:0; justify-content:center; border-radius:50%; font-size:15px; font-weight:700;}
+  .help-modal{position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; z-index:9999; padding:20px;}
+  .help-modal.open{display:flex;}
+  .help-card{width:min(460px, 100%); background:var(--bg-1); border:1px solid var(--line); border-radius:12px; box-shadow:0 18px 50px rgba(0,0,0,.45); padding:18px 18px 16px;}
+  .help-card h3{margin:0 0 8px; font-size:16px;}
+  .help-card p{margin:0 0 10px; color:var(--text-dim); font-size:13px; line-height:1.5;}
+  .help-card ul{margin:0 0 12px 18px; padding:0; color:var(--text); font-size:13px; line-height:1.6;}
+  .help-card .help-actions{display:flex; justify-content:flex-end;}
+
+  .tpl-panel{
+    position:absolute; top:100%; right:16px; margin-top:6px;
+    width:320px; max-height:420px; overflow:auto;
+    background:var(--bg-2); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 12px 30px rgba(0,0,0,.5);
+    padding:10px; display:none; z-index:50;
+  }
+  .tpl-panel.open{display:block;}
+  .tpl-save-row{display:flex; gap:6px; margin-bottom:10px;}
+  .tpl-save-row input{
+    flex:1; background:var(--bg-1); border:1px solid var(--line); color:var(--text);
+    border-radius:6px; padding:6px 8px; font-size:12.5px; font-family:var(--sans);
+  }
+  .tpl-item{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:7px 8px; border-radius:6px; font-size:12.5px;
+  }
+  .tpl-item:hover{background:var(--bg-1);}
+  .tpl-item .tpl-name{cursor:pointer; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .tpl-item .tpl-name:hover{color:var(--accent);}
+  .tpl-item .tpl-actions{display:flex; gap:4px;}
+  .tpl-item .tpl-date{font-family:var(--mono); font-size:10px; color:var(--text-dim); margin-right:6px;}
+  .tpl-empty{color:var(--text-dim); font-size:12px; padding:10px 4px; text-align:center;}
+  .icon-btn{background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:13px; padding:2px 5px; border-radius:4px;}
+  .icon-btn:hover{color:var(--danger); background:rgba(226,104,95,.1);}
+
+  .workbench{flex:1; display:flex; min-height:0;}
+  .pane{display:flex; flex-direction:column; min-width:0;}
+  .editor-pane{flex-basis:44%; background:var(--bg-1);}
+  .preview-pane{flex-basis:56%; background:#0f0f0f;}
+  .pane-header{flex:none; display:flex; align-items:center; justify-content:space-between; padding:8px 14px; font-family:var(--mono); font-size:11.5px; color:var(--text-dim); border-bottom:1px solid var(--line); background:var(--bg-1);}
+  .pane-header .filename{color:var(--text);}
+  .resizer{flex:none; width:6px; cursor:col-resize; background:var(--bg-0); position:relative;}
+  .resizer::after{content:""; position:absolute; top:0;bottom:0;left:2px; width:2px; background:var(--line);}
+  .resizer:hover::after, .resizer.active::after{background:var(--accent);}
+
+  .editor-wrap{position:relative; flex:1; min-height:0; display:flex;}
+  .gutter{flex:none; width:44px; background:var(--bg-1); color:#565656; font-family:var(--mono); font-size:12.5px; line-height:20px; text-align:right; padding:12px 8px 12px 0; overflow:hidden; user-select:none; border-right:1px solid var(--line); white-space:pre;}
+  .code-stack{position:relative; flex:1; min-width:0;}
+  .code-layer, #cssInput{position:absolute; inset:0; margin:0; padding:12px 16px; font-family:var(--mono); font-size:12.5px; line-height:20px; white-space:pre; tab-size:2;}
+  .code-layer{overflow:hidden; pointer-events:none; color:var(--text);}
+  #cssInput{width:100%; height:100%; background:transparent; color:transparent; caret-color:#fff; border:none; outline:none; resize:none; overflow:auto;}
+  #cssInput::selection{background:rgba(95,208,163,.28);}
+
+  .tok-comment{color:#6a7768; font-style:italic;}
+  .tok-string{color:#d3b96a;}
+  .tok-at{color:#c792ea;}
+  .tok-color{color:#79c0ff;}
+  .tok-prop{color:#5fd0a3;}
+  .tok-punct{color:#7d7d7d;}
+
+  .dropzone-hint{position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(95,208,163,.08); border:2px dashed var(--accent); color:var(--accent); font-family:var(--mono); font-size:13px; pointer-events:none; z-index:5;}
+  .editor-wrap.dragging .dropzone-hint{display:flex;}
+
+  .viewport-toggle{display:flex; gap:4px;}
+  .vwbtn{background:transparent; border:1px solid var(--line); color:var(--text-dim); font-family:var(--mono); font-size:11px; padding:4px 9px; border-radius:5px; cursor:pointer;}
+  .vwbtn.active{border-color:var(--accent); color:var(--accent);}
+
+  .preview-frame-wrap{
+    flex:1; min-height:0; padding:18px; display:flex; overflow:auto;
+    background:
+      linear-gradient(45deg, #161616 25%, transparent 25%),
+      linear-gradient(-45deg, #161616 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #161616 75%),
+      linear-gradient(-45deg, transparent 75%, #161616 75%);
+    background-size:16px 16px;
+    background-position:0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color:#0f0f0f;
+  }
+  .preview-frame-inner{margin:0 auto; width:100%; max-width:100%; background:#fff; box-shadow:0 0 0 1px rgba(255,255,255,.06), 0 20px 50px rgba(0,0,0,.5); transition:max-width .2s ease; display:flex;}
+  #previewFrame{width:100%; height:100%; min-height:600px; border:none; background:#fff;}
+
+  .statusbar{flex:none; padding:5px 16px; font-family:var(--mono); font-size:11px; color:var(--text-dim); background:var(--bg-1); border-top:1px solid var(--line); display:flex; justify-content:space-between;}
+  .statusbar .ok{color:var(--accent);}
+
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#3a3a3a; border-radius:6px;}
+  ::-webkit-scrollbar-thumb:hover{background:#4a4a4a;}
+
+  /* Light theme overrides */
+  [data-theme="light"]{
+    --bg-0:#f6f8fb; --bg-1:#ffffff; --bg-2:#f3f6fb;
+    --line:#e0e6ef; --text:#0b2540; --text-dim:#5b6b80;
+    --accent:#0b3d91; --accent-contrast:#ffffff;
+  }
+
+  /* PDF modal (theme-aware) */
+  .pdf-modal-overlay{background:rgba(0,0,0,.5);}
+  .pdf-modal-card{
+    background:var(--bg-1);
+    color:var(--text);
+    border:1px solid var(--line);
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+  }
+  .pdf-modal-card label{color:var(--text);}
+  .pdf-modal-card select, .pdf-modal-card input{
+    background:var(--bg-2); color:var(--text);
+    border:1px solid var(--line); border-radius:6px; padding:5px 7px;
+    font-family:var(--sans); font-size:12.5px;
+  }
+
+  /* ---------- painel de chat IA ---------- */
+  .chat-toggle{
+    position:fixed; right:16px; bottom:16px; z-index:60;
+    width:48px; height:48px; border-radius:50%;
+    background:var(--accent); border:none; cursor:pointer;
+    box-shadow:0 6px 20px rgba(0,0,0,.45);
+    display:flex; align-items:center; justify-content:center;
+    color:#0d1f18; font-size:20px; transition:transform .15s, background .15s;
+  }
+  .chat-toggle:hover{background:#74dcb2; transform:scale(1.06);}
+  .chat-toggle.has-new::after{
+    content:""; position:absolute; top:6px; right:6px;
+    width:9px; height:9px; border-radius:50%; background:var(--danger);
+    box-shadow:0 0 6px var(--danger);
+  }
+
+  .chat-panel{
+    position:fixed; right:16px; bottom:74px; z-index:61;
+    width:380px; max-width:calc(100vw - 32px); height:540px; max-height:calc(100vh - 96px);
+    background:var(--bg-2); border:1px solid var(--line); border-radius:12px;
+    box-shadow:0 18px 50px rgba(0,0,0,.55);
+    display:none; flex-direction:column; overflow:hidden;
+  }
+  .chat-panel.open{display:flex;}
+
+  .chat-header{
+    flex:none; display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px; background:var(--bg-1); border-bottom:1px solid var(--line);
+  }
+  .chat-header .title{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:13px;}
+  .chat-header .title .dot{width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 6px var(--accent);}
+  .chat-header select{
+    background:var(--bg-2); border:1px solid var(--line); color:var(--text);
+    border-radius:5px; padding:3px 6px; font-size:11px; font-family:var(--mono); max-width:150px;
+  }
+  .chat-close{background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:18px; padding:2px 6px; border-radius:4px;}
+  .chat-close:hover{color:var(--text); background:var(--bg-2);}
+
+  .chat-messages{flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:10px;}
+  .chat-msg{max-width:88%; padding:9px 12px; border-radius:10px; font-size:13px; line-height:1.45; white-space:pre-wrap; word-wrap:break-word;}
+  .chat-msg.user{align-self:flex-end; background:var(--accent); color:#0d1f18; border-bottom-right-radius:3px;}
+  .chat-msg.assistant{align-self:flex-start; background:var(--bg-1); border:1px solid var(--line); border-bottom-left-radius:3px;}
+  .chat-msg.assistant pre{background:var(--bg-0); padding:8px; border-radius:6px; overflow:auto; font-size:11.5px; margin:6px 0 0; max-height:200px;}
+  .chat-msg.system{align-self:center; background:transparent; color:var(--text-dim); font-size:11.5px; font-style:italic; border:1px dashed var(--line); border-radius:6px; padding:5px 10px;}
+  .chat-msg .apply-row{display:flex; gap:6px; margin-top:8px;}
+  .chat-msg .apply-row .btn{padding:4px 9px; font-size:11.5px;}
+
+  .chat-typing{align-self:flex-start; color:var(--text-dim); font-size:12px; padding:6px 12px;}
+  .chat-typing span{display:inline-block; width:6px; height:6px; margin:0 1px; border-radius:50%; background:var(--text-dim); animation:blink 1.2s infinite both;}
+  .chat-typing span:nth-child(2){animation-delay:.2s;} .chat-typing span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.2;} 40%{opacity:1;}}
+
+  .chat-input-row{flex:none; display:flex; gap:6px; padding:10px 12px; border-top:1px solid var(--line); background:var(--bg-1);}
+  .chat-input-row textarea{
+    flex:1; resize:none; height:42px; max-height:100px;
+    background:var(--bg-2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:8px 10px; font-family:var(--sans); font-size:13px; line-height:1.4;
+  }
+  .chat-input-row textarea:focus{outline:none; border-color:var(--accent);}
+  .chat-send{
+    flex:none; width:42px; height:42px; border-radius:8px;
+    background:var(--accent); border:none; cursor:pointer; color:#0d1f18; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .chat-send:hover{background:#74dcb2;}
+  .chat-send:disabled{opacity:.5; cursor:not-allowed;}
+
+  .chat-hint{padding:6px 14px 8px; font-size:10.5px; color:var(--text-dim); font-family:var(--mono); background:var(--bg-1); border-top:1px solid var(--line);}
+
+  /* toggle auto-aplicar */
+  .auto-apply-toggle{display:flex; align-items:center; gap:5px; cursor:pointer; font-size:11px; color:var(--text-dim); font-family:var(--mono); user-select:none;}
+  .auto-apply-toggle input{display:none;}
+  .auto-apply-toggle .switch{
+    width:28px; height:15px; border-radius:9px; background:var(--bg-2);
+    border:1px solid var(--line); position:relative; transition:background .15s;
+  }
+  .auto-apply-toggle .switch::after{
+    content:""; position:absolute; top:1px; left:1px; width:11px; height:11px;
+    border-radius:50%; background:var(--text-dim); transition:transform .15s, background .15s;
+  }
+  .auto-apply-toggle input:checked + .switch{background:rgba(95,208,163,.25); border-color:var(--accent);}
+  .auto-apply-toggle input:checked + .switch::after{transform:translateX(13px); background:var(--accent);}
+  .auto-apply-toggle .lbl{font-size:10.5px;}
+
+  /* botão desfazer na mensagem da IA */
+  .chat-msg .undo-btn{background:transparent; border:1px solid var(--line); color:var(--text-dim); padding:4px 9px; font-size:11.5px; border-radius:5px; cursor:pointer; font-family:var(--sans);}
+  .chat-msg .undo-btn:hover{color:var(--danger); border-color:var(--danger);}
+  .chat-msg .applied-tag{font-size:10px; color:var(--accent); font-family:var(--mono); margin-left:auto; padding-left:6px;}
+
+  /* texto conversacional com markdown básico */
+  .chat-msg.assistant .chat-text{line-height:1.5;}
+  .chat-msg.assistant .chat-text strong{color:var(--text); font-weight:600;}
+  .chat-msg.assistant .chat-text code{background:var(--bg-0); padding:1px 5px; border-radius:4px; font-family:var(--mono); font-size:11.5px; color:var(--accent);}
+  .chat-msg.assistant .css-collapsible{margin-top:8px;}
+  .chat-msg.assistant .css-toggle{display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; color:var(--text-dim); font-family:var(--mono); padding:4px 0;}
+  .chat-msg.assistant .css-toggle:hover{color:var(--accent);}
+  .chat-msg.assistant .css-toggle .arrow{transition:transform .15s; display:inline-block;}
+  .chat-msg.assistant .css-toggle.open .arrow{transform:rotate(90deg);}
+  .chat-msg.assistant .css-code{display:none; margin-top:6px;}
+  .chat-msg.assistant .css-code.open{display:block;}
+  .chat-msg.assistant .css-code pre{background:var(--bg-0); padding:8px 10px; border-radius:6px; overflow:auto; font-size:11.5px; margin:0; max-height:240px; border:1px solid var(--line);}
+
+  /* diff de operações (patch) */
+  .patch-ops .patch-op{display:flex; align-items:center; gap:6px; padding:4px 8px; font-size:11.5px; font-family:var(--mono); border-radius:4px; margin:2px 0;}
+  .patch-op .patch-icon{font-weight:700; width:14px; text-align:center;}
+  .patch-op .patch-op-name{font-size:10px; color:var(--text-dim); text-transform:uppercase;}
+  .patch-op code{background:var(--bg-0); padding:1px 5px; border-radius:3px; color:var(--accent); font-size:11px;}
+  .patch-add{background:rgba(95,208,163,.08);} .patch-add .patch-icon{color:var(--accent);}
+  .patch-delete{background:rgba(226,104,95,.08);} .patch-delete .patch-icon{color:var(--danger);}
+  .patch-replace{background:rgba(211,185,106,.08);} .patch-replace .patch-icon{color:#d3b96a;}
+
+  /* chips de sugestão rápida */
+  .chat-suggestions{display:flex; flex-wrap:wrap; gap:6px; padding:8px 14px; border-top:1px solid var(--line); background:var(--bg-1);}
+  .chat-suggestions .chip{background:var(--bg-2); border:1px solid var(--line); color:var(--text-dim); font-size:11.5px; padding:5px 10px; border-radius:14px; cursor:pointer; font-family:var(--sans); transition:all .12s;}
+  .chat-suggestions .chip:hover{border-color:var(--accent); color:var(--accent); background:rgba(95,208,163,.06);}
+
+  /* botão Aplicar destacado */
+  .chat-msg .apply-btn{
+    background:var(--accent); border:1px solid var(--accent); color:#0d1f18;
+    font-weight:600; padding:7px 14px; font-size:12.5px; border-radius:7px;
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+    transition:background .15s, transform .1s;
+  }
+  .chat-msg .apply-btn:hover{background:#74dcb2; transform:scale(1.03);}
+  .chat-msg .apply-btn:active{transform:scale(.97);}
+  .chat-msg .apply-btn.applied{background:var(--bg-2); border-color:var(--accent); color:var(--accent); cursor:default; transform:none;}
+  .chat-msg .apply-btn.applied:hover{background:var(--bg-2); transform:none;}
+
+  /* pulse quando aguardando aplicação manual */
+  @keyframes pulse-apply{
+    0%,100%{box-shadow:0 0 0 0 rgba(95,208,163,.5);}
+    50%{box-shadow:0 0 0 6px rgba(95,208,163,0);}
+  }
+  .chat-msg .apply-btn.pulse{animation:pulse-apply 1.5s infinite;}
+
+  /* flash verde no editor ao aplicar CSS */
+  @keyframes editor-flash{
+    0%{box-shadow:inset 0 0 0 0 rgba(95,208,163,0);}
+    30%{box-shadow:inset 0 0 0 3px rgba(95,208,163,.6);}
+    100%{box-shadow:inset 0 0 0 0 rgba(95,208,163,0);}
+  }
+  .editor-wrap.flash{animation:editor-flash .6s ease-out;}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <b>CSS Live Lab</b>
+    </div>
+    <div class="toolbar">
+      <label class="btn">Carregar HTML<input type="file" id="htmlFile" accept=".html,.htm"></label>
+      <label class="btn">Carregar CSS<input type="file" id="cssFile" accept=".css"></label>
+      <button class="btn ghost" id="tplToggleBtn">Templates</button>
+      <button class="btn ghost" id="resetBtn">Restaurar original</button>
+      <button class="btn ghost" id="copyBtn">Copiar CSS</button>
+      <button class="btn primary" id="exportBtn">Exportar CSS</button>
+      <button class="btn primary" id="pdfBtn">Gerar PDF</button>
+      <button class="btn ghost" id="themeToggle" title="Alternar tema">Tema</button>
+      <button class="btn ghost help-btn" id="helpBtn" title="Ajuda">?</button>
+    </div>
+
+    <div class="tpl-panel" id="tplPanel">
+      <div class="tpl-save-row">
+        <input type="text" id="tplNameInput" placeholder="nome do template (ex: Aceite de Proposta)">
+        <button class="btn primary small" id="tplSaveBtn">Salvar atual</button>
+      </div>
+      <div class="tpl-list" id="tplList"></div>
+    </div>
+  </div>
+
+  <div class="workbench" id="workbench">
+    <section class="pane editor-pane" id="editorPane">
+      <div class="pane-header">
+        <span class="filename" id="cssFileName">estilos.css</span>
+        <span id="cssMeta">0 linhas</span>
+      </div>
+      <div class="editor-wrap" id="editorWrap">
+        <div class="gutter" id="gutter">1</div>
+        <div class="code-stack">
+          <pre class="code-layer" id="codeLayer"><code id="highlighted"></code></pre>
+          <textarea id="cssInput" spellcheck="false" wrap="off"></textarea>
+        </div>
+        <div class="dropzone-hint">solte o arquivo .css aqui</div>
+      </div>
+    </section>
+
+    <div class="resizer" id="resizer"></div>
+
+    <section class="pane preview-pane" id="previewPane">
+      <div class="pane-header">
+        <span class="filename">Pré-visualização</span>
+      </div>
+      <div class="preview-frame-wrap">
+        <div class="preview-frame-inner" id="frameInner">
+          <iframe id="previewFrame" title="preview" sandbox="allow-same-origin allow-scripts"></iframe>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="statusbar">
+    <span id="statusText">Exemplo carregado — suba seu HTML e CSS para editar de verdade</span>
+    <span id="statusRight" class="ok">● live</span>
+  </div>
+
+  <div class="help-modal" id="helpModal" aria-hidden="true">
+    <div class="help-card">
+      <h3>Como usar a ferramenta</h3>
+      <p>Você pode montar e ajustar o layout em poucos passos:</p>
+      <ul>
+        <li>Carregue o seu HTML e CSS pelos botões do topo.</li>
+        <li>Edite o CSS no painel esquerdo e veja a pré-visualização à direita.</li>
+        <li>Use os botões de Templates para salvar ou restaurar versões.</li>
+        <li>Exporte o CSS quando estiver satisfeito com o resultado.</li>
+      </ul>
+      <div class="help-actions">
+        <button class="btn ghost" id="helpCloseBtn">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Gerar PDF -->
+  <div id="pdfModal" class="modal pdf-modal-overlay" style="display:none; position:fixed; inset:0; align-items:center; justify-content:center; z-index:9999;">
+    <div class="modal-card pdf-modal-card" style="padding:18px; width:420px; border-radius:8px;">
+      <h3 style="margin:0 0 8px 0">Gerar PDF</h3>
+      <div style="margin-bottom:8px">
+        <label>Tamanho: <select id="pdfPageSize"><option>A4</option><option>Letter</option><option>Legal</option></select></label>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:8px">
+        <label style="flex:1">Margem topo (mm)<br><input id="pdfMarginTop" type="number" value="10" style="width:100%"></label>
+        <label style="flex:1">Margem inf (mm)<br><input id="pdfMarginBottom" type="number" value="10" style="width:100%"></label>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:8px">
+        <label style="flex:1">Margem esq (mm)<br><input id="pdfMarginLeft" type="number" value="10" style="width:100%"></label>
+        <label style="flex:1">Margem dir (mm)<br><input id="pdfMarginRight" type="number" value="10" style="width:100%"></label>
+      </div>
+      <div style="text-align:right">
+        <button class="btn ghost" id="pdfCancelBtn">Cancelar</button>
+        <button class="btn primary" id="pdfGenerateBtn">Gerar e Baixar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat IA -->
+  <button class="chat-toggle" id="chatToggle" title="Chat com IA para ajustar o CSS">✦</button>
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-header">
+      <div class="title"><span class="dot"></span> IA CSS <span class="sub" style="color:var(--text-dim);font-weight:400;"></span></div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <select id="chatModelSelect" title="Modelo"></select>
+        <button class="chat-close" id="chatClose" title="Fechar">✕</button>
+      </div>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg system">A IA é um auxiliar: ela orienta onde e o que alterar no CSS. Você faz as mudanças manualmente no editor. O HTML nunca é alterado.</div>
+    </div>
+    <div class="chat-typing" id="chatTyping" style="display:none;"><span></span><span></span><span></span></div>
+    <div class="chat-suggestions" id="chatSuggestions">
+      <span class="chip" data-msg="deixe o card maior e com sombra mais suave">deixe o card maior</span>
+      <span class="chip" data-msg="mude a cor de fundo para azul escuro">fundo azul escuro</span>
+      <span class="chip" data-msg="centralize o botão e deixe-o arredondado">centralizar botão</span>
+      <span class="chip" data-msg="adicione uma animação de hover no botão">hover no botão</span>
+      <span class="chip" data-msg="deixe o layout responsivo para mobile">responsivo mobile</span>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="chatInput" placeholder="Descreva a mudança no CSS..." rows="1"></textarea>
+      <button class="chat-send" id="chatSend" title="Enviar">➤</button>
+    </div>
+    <div class="chat-hint">Enter envia · Shift+Enter quebra linha</div>
+  </div>
+
+  <script>
+(function(){
+  const htmlFileInput = document.getElementById('htmlFile');
+  const cssFileInput  = document.getElementById('cssFile');
+  const cssInput      = document.getElementById('cssInput');
+  const highlighted    = document.getElementById('highlighted');
+  const gutter         = document.getElementById('gutter');
+  const cssMeta        = document.getElementById('cssMeta');
+  const cssFileName    = document.getElementById('cssFileName');
+  const statusText     = document.getElementById('statusText');
+  const previewFrame   = document.getElementById('previewFrame');
+  const frameInner     = document.getElementById('frameInner');
+  const resetBtn       = document.getElementById('resetBtn');
+  const exportBtn      = document.getElementById('exportBtn');
+  const copyBtn        = document.getElementById('copyBtn');
+  const editorWrap     = document.getElementById('editorWrap');
+  const workbench      = document.getElementById('workbench');
+  const editorPane     = document.getElementById('editorPane');
+  const resizer        = document.getElementById('resizer');
+  const tplToggleBtn   = document.getElementById('tplToggleBtn');
+  const tplPanel       = document.getElementById('tplPanel');
+  const tplNameInput   = document.getElementById('tplNameInput');
+  const tplSaveBtn     = document.getElementById('tplSaveBtn');
+  const tplList        = document.getElementById('tplList');
+  const helpBtn        = document.getElementById('helpBtn');
+  const helpModal      = document.getElementById('helpModal');
+  const helpCloseBtn   = document.getElementById('helpCloseBtn');
+
+  function toggleHelpModal(){
+    const isOpen = helpModal.classList.toggle('open');
+    helpModal.setAttribute('aria-hidden', String(!isOpen));
+  }
+
+  if(helpBtn){ helpBtn.addEventListener('click', toggleHelpModal); }
+  if(helpCloseBtn){ helpCloseBtn.addEventListener('click', toggleHelpModal); }
+  if(helpModal){ helpModal.addEventListener('click', (e)=>{ if(e.target===helpModal) toggleHelpModal(); }); }
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && helpModal && helpModal.classList.contains('open')) toggleHelpModal(); });
+
+  const SAMPLE_HTML = `<div class="card">
+  <span class="tag">exemplo</span>
+  <h1>Edite o CSS ao lado</h1>
+  <p>Isto é um HTML de demonstração. Use os botões acima para carregar o seu próprio HTML e CSS, ou salve/carregue um template.</p>
+  <button class="cta">Ação principal</button>
+</div>`;
+
+  const SAMPLE_CSS = `body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f2f1ec;
+  font-family: -apple-system, sans-serif;
+}
+.card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 28px;
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #2f6b52;
+  background: #e3f6ec;
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+h1 { font-size: 20px; margin: 0 0 8px; color: #1a1a1a; }
+p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
+.cta { border: none; background: #1a1a1a; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; cursor: pointer; }`;
+
+  let currentHtml = SAMPLE_HTML;
+  let originalCss = SAMPLE_CSS;
+  let loadedHtmlName = null;
+  let loadedCssName  = null;
+
+  function debounce(fn, delay){ let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), delay); }; }
+  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function highlightCSS(raw){
+    const esc = escapeHtml(raw);
+    const regex = /(\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(@[\w-]+)|(#[0-9a-fA-F]{3,8}\b)|([a-zA-Z-][\w-]*)(?=\s*:)|([{}:;,])/g;
+    return esc.replace(regex, (m, comment, str, atrule, color, prop, punct) => {
+      if (comment) return `<span class="tok-comment">${m}</span>`;
+      if (str)     return `<span class="tok-string">${m}</span>`;
+      if (atrule)  return `<span class="tok-at">${m}</span>`;
+      if (color)   return `<span class="tok-color">${m}</span>`;
+      if (prop)    return `<span class="tok-prop">${m}</span>`;
+      if (punct)   return `<span class="tok-punct">${m}</span>`;
+      return m;
+    });
+  }
+
+  function buildPreviewDoc(html, css){
+    const styleTag = `<style id="__live_css__">\n${css}\n</style>`;
+    let doc = html;
+    if (/<\/head>/i.test(doc)) doc = doc.replace(/<\/head>/i, styleTag + '\n</head>');
+    else if (/<head[^>]*>/i.test(doc)) doc = doc.replace(/(<head[^>]*>)/i, `$1\n${styleTag}`);
+    else if (/<html[^>]*>/i.test(doc)) doc = doc.replace(/(<html[^>]*>)/i, `$1\n<head>${styleTag}</head>`);
+    else doc = `<!DOCTYPE html><html><head>${styleTag}</head><body>\n${doc}\n</body></html>`;
+    return doc;
+  }
+
+  function updateGutter(){
+    const lines = cssInput.value.split('\n').length;
+    let out = ''; for (let i = 1; i <= lines; i++) out += i + '\n';
+    gutter.textContent = out;
+  }
+  function updateMeta(){
+    cssMeta.textContent = `${cssInput.value.split('\n').length} linhas · ${cssInput.value.length} caracteres`;
+  }
+  function updateHighlightLayer(){ highlighted.innerHTML = highlightCSS(cssInput.value) + '\n'; }
+  function syncScroll(){
+    gutter.scrollTop = cssInput.scrollTop;
+    document.getElementById('codeLayer').scrollTop = cssInput.scrollTop;
+    document.getElementById('codeLayer').scrollLeft = cssInput.scrollLeft;
+  }
+  function updatePreview(){ previewFrame.srcdoc = buildPreviewDoc(currentHtml, cssInput.value); }
+  const scheduleUpdate = debounce(updatePreview, 150);
+  function onCssChange(){ updateGutter(); updateHighlightLayer(); updateMeta(); syncScroll(); scheduleUpdate(); }
+  function setStatus(msg, ok){ statusText.textContent = msg; statusText.className = ok ? 'ok' : ''; }
+
+  cssInput.value = SAMPLE_CSS;
+  onCssChange();
+  updatePreview();
+
+  cssInput.addEventListener('input', onCssChange);
+  cssInput.addEventListener('scroll', syncScroll);
+  cssInput.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = cssInput.selectionStart, end = cssInput.selectionEnd;
+      cssInput.value = cssInput.value.slice(0, start) + '  ' + cssInput.value.slice(end);
+      cssInput.selectionStart = cssInput.selectionEnd = start + 2;
+      onCssChange();
+    }
+  });
+
+  function readFile(file, cb){ const r = new FileReader(); r.onload = ev => cb(ev.target.result); r.readAsText(file); }
+  function loadHtml(file){
+    readFile(file, text => {
+      currentHtml = text; loadedHtmlName = file.name;
+      setStatus(`HTML carregado: ${loadedHtmlName}${loadedCssName ? ' · CSS: ' + loadedCssName : ''}`, true);
+      updatePreview();
+    });
+  }
+  function loadCss(file){
+    readFile(file, text => {
+      originalCss = text; cssInput.value = text; loadedCssName = file.name;
+      cssFileName.textContent = loadedCssName;
+      setStatus(`CSS carregado: ${loadedCssName}${loadedHtmlName ? ' · HTML: ' + loadedHtmlName : ''}`, true);
+      onCssChange(); updatePreview();
+    });
+  }
+  htmlFileInput.addEventListener('change', e => { if (e.target.files[0]) loadHtml(e.target.files[0]); });
+  cssFileInput.addEventListener('change',  e => { if (e.target.files[0]) loadCss(e.target.files[0]); });
+
+  ['dragenter','dragover'].forEach(evt => editorWrap.addEventListener(evt, e => { e.preventDefault(); editorWrap.classList.add('dragging'); }));
+  ['dragleave','drop'].forEach(evt => editorWrap.addEventListener(evt, e => { e.preventDefault(); editorWrap.classList.remove('dragging'); }));
+  editorWrap.addEventListener('drop', e => {
+    Array.from(e.dataTransfer.files || []).forEach(f => {
+      if (/\.css$/i.test(f.name)) loadCss(f);
+      else if (/\.html?$/i.test(f.name)) loadHtml(f);
+    });
+  });
+
+  resetBtn.addEventListener('click', () => {
+    cssInput.value = originalCss; onCssChange(); updatePreview();
+    setStatus('CSS restaurado para a versão original carregada', true);
+  });
+  exportBtn.addEventListener('click', () => {
+    const blob = new Blob([cssInput.value], { type: 'text/css' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const base = loadedCssName ? loadedCssName.replace(/\.css$/i, '') : 'estilos';
+    a.href = url; a.download = `${base}-editado.css`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    setStatus('CSS exportado com sucesso', true);
+  });
+  copyBtn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(cssInput.value); setStatus('CSS copiado para a área de transferência', true); }
+    catch (err) { setStatus('Não foi possível copiar automaticamente — selecione e copie manualmente', false); }
+  });
+
+  document.querySelectorAll('.vwbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.vwbtn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      frameInner.style.maxWidth = btn.dataset.w;
+    });
+  });
+
+  let resizing = false;
+  resizer.addEventListener('mousedown', () => { resizing = true; resizer.classList.add('active'); document.body.style.cursor = 'col-resize'; });
+  window.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    const rect = workbench.getBoundingClientRect();
+    let pct = ((e.clientX - rect.left) / rect.width) * 100;
+    pct = Math.min(75, Math.max(20, pct));
+    editorPane.style.flexBasis = pct + '%';
+  });
+  window.addEventListener('mouseup', () => { if (resizing){ resizing = false; resizer.classList.remove('active'); document.body.style.cursor=''; } });
+
+  // ---------- biblioteca de templates ----------
+  async function refreshTemplateList(){
+    const res = await fetch('/api/templates');
+    const items = await res.json();
+    tplList.innerHTML = '';
+    if (!items.length){
+      tplList.innerHTML = '<div class="tpl-empty">Nenhum template salvo ainda</div>';
+      return;
+    }
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'tpl-item';
+      const dateStr = item.updated_at ? item.updated_at.replace('T', ' ') : '';
+      row.innerHTML = `
+        <span class="tpl-name" title="Carregar">${item.name}</span>
+        <span class="tpl-actions">
+          <span class="tpl-date">${dateStr}</span>
+          <button class="icon-btn" title="Excluir">✕</button>
+        </span>`;
+      row.querySelector('.tpl-name').addEventListener('click', () => loadTemplate(item.name));
+      row.querySelector('.icon-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteTemplate(item.name); });
+      tplList.appendChild(row);
+    });
+  }
+
+  async function loadTemplate(name){
+    const res = await fetch(`/api/templates/${encodeURIComponent(name)}`);
+    if (!res.ok){ setStatus('Erro ao carregar template', false); return; }
+    const data = await res.json();
+    currentHtml = data.html || '';
+    originalCss = data.css || '';
+    cssInput.value = originalCss;
+    loadedCssName = data.name;
+    cssFileName.textContent = data.name;
+    onCssChange(); updatePreview();
+    setStatus(`Template "${data.name}" carregado`, true);
+    tplPanel.classList.remove('open');
+  }
+
+  async function saveTemplateAs(name){
+    if (!name.trim()){ setStatus('Digite um nome para salvar o template', false); return; }
+    await fetch(`/api/templates/${encodeURIComponent(name)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html: currentHtml, css: cssInput.value })
+    });
+    setStatus(`Template "${name}" salvo`, true);
+    tplNameInput.value = '';
+    refreshTemplateList();
+  }
+
+  async function deleteTemplate(name){
+    if (!confirm(`Excluir o template "${name}"?`)) return;
+    await fetch(`/api/templates/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    refreshTemplateList();
+  }
+
+  tplToggleBtn.addEventListener('click', () => {
+    tplPanel.classList.toggle('open');
+    if (tplPanel.classList.contains('open')) refreshTemplateList();
+  });
+  document.addEventListener('click', (e) => {
+    if (!tplPanel.contains(e.target) && e.target !== tplToggleBtn) tplPanel.classList.remove('open');
+  });
+  tplSaveBtn.addEventListener('click', () => saveTemplateAs(tplNameInput.value));
+  tplNameInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveTemplateAs(tplNameInput.value); });
+
+  // ---------- chat IA (ajusta só o CSS, nunca o HTML) ----------
+  const chatToggle      = document.getElementById('chatToggle');
+  const chatPanel       = document.getElementById('chatPanel');
+  const chatClose       = document.getElementById('chatClose');
+  const chatMessages    = document.getElementById('chatMessages');
+  const chatInput       = document.getElementById('chatInput');
+  const chatSend        = document.getElementById('chatSend');
+  const chatTyping      = document.getElementById('chatTyping');
+  const chatModelSelect = document.getElementById('chatModelSelect');
+  let chatHistory = []; // [{role, content}]
+  let chatBusy = false;
+
+  // carrega lista de modelos
+  fetch('/api/models').then(r => r.json()).then(models => {
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m.split('/').pop();
+      chatModelSelect.appendChild(opt);
+    });
+  }).catch(() => {});
+
+  function openChat(){ chatPanel.classList.add('open'); chatToggle.classList.remove('has-new'); chatInput.focus(); }
+  function closeChat(){ chatPanel.classList.remove('open'); }
+  chatToggle.addEventListener('click', () => chatPanel.classList.contains('open') ? closeChat() : openChat());
+  chatClose.addEventListener('click', closeChat);
+
+  // renderiza markdown básico (negrito, código inline) de forma segura
+  function renderMarkdown(text){
+    let s = escapeHtml(text);
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    return s;
+  }
+
+  function addChatMsg(role, text, cssBlock, prevCss, appliedOps){
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role}`;
+    if (cssBlock){
+      // texto conversacional em destaque
+      const textDiv = document.createElement('div');
+      textDiv.className = 'chat-text';
+      textDiv.innerHTML = renderMarkdown(text);
+      div.appendChild(textDiv);
+
+      // se houver operações de patch, mostra o diff resumido; senão mostra CSS colapsável
+      const cssWrap = document.createElement('div');
+      cssWrap.className = 'css-collapsible';
+      if (appliedOps && appliedOps.length){
+        // mostra as operações aplicadas (diff resumido)
+        const opsDiv = document.createElement('div');
+        opsDiv.className = 'patch-ops';
+        const opsLabel = document.createElement('div');
+        opsLabel.className = 'css-toggle';
+        opsLabel.innerHTML = `<span class="arrow">▸</span> ${appliedOps.length} alteração(ões)`;
+        const opsList = document.createElement('div');
+        opsList.className = 'css-code';
+        appliedOps.forEach(op => {
+          const item = document.createElement('div');
+          item.className = `patch-op patch-${op.op.toLowerCase()}`;
+          const icon = op.op === 'ADD' ? '+' : op.op === 'DELETE' ? '−' : '~';
+          item.innerHTML = `<span class="patch-icon">${icon}</span> <span class="patch-op-name">${op.op}</span> <code>${escapeHtml(op.selector)}</code>`;
+          opsList.appendChild(item);
+        });
+        opsLabel.addEventListener('click', () => {
+          opsLabel.classList.toggle('open');
+          opsList.classList.toggle('open');
+        });
+        opsDiv.appendChild(opsLabel);
+        opsDiv.appendChild(opsList);
+        cssWrap.appendChild(opsDiv);
+      } else {
+        // fallback: CSS inteiro colapsável
+        const toggle = document.createElement('div');
+        toggle.className = 'css-toggle';
+        toggle.innerHTML = '<span class="arrow">▸</span> ver CSS gerado';
+        const codeBox = document.createElement('div');
+        codeBox.className = 'css-code';
+        codeBox.innerHTML = `<pre><code>${escapeHtml(cssBlock)}</code></pre>`;
+        toggle.addEventListener('click', () => {
+          toggle.classList.toggle('open');
+          codeBox.classList.toggle('open');
+        });
+        cssWrap.appendChild(toggle);
+        cssWrap.appendChild(codeBox);
+      }
+      div.appendChild(cssWrap);
+
+      // linha de ações
+      const row = document.createElement('div');
+      row.className = 'apply-row';
+      const applyBtn = document.createElement('button');
+      applyBtn.className = 'apply-btn'; applyBtn.textContent = '✓ Aplicar alteração';
+      applyBtn.addEventListener('click', () => applyCssFromAI(cssBlock, div, applyBtn));
+      const copyBtn2 = document.createElement('button');
+      copyBtn2.className = 'btn small'; copyBtn2.textContent = 'Copiar';
+      copyBtn2.addEventListener('click', () => navigator.clipboard.writeText(cssBlock));
+      row.appendChild(applyBtn); row.appendChild(copyBtn2);
+
+      if (prevCss !== undefined && prevCss !== null){
+        const undoBtn = document.createElement('button');
+        undoBtn.className = 'undo-btn'; undoBtn.textContent = '↩ Desfazer';
+        undoBtn.addEventListener('click', () => {
+          cssInput.value = prevCss; onCssChange(); updatePreview();
+          setStatus('CSS restaurado para antes da edição da IA', true);
+          undoBtn.remove();
+          const tag = row.querySelector('.applied-tag');
+          if (tag) tag.textContent = 'desfeito';
+          applyBtn.classList.remove('applied'); applyBtn.textContent = '✓ Aplicar alteração';
+        });
+        row.appendChild(undoBtn);
+      }
+      div.appendChild(row);
+    } else {
+      // só conversa, sem CSS
+      const textDiv = document.createElement('div');
+      textDiv.className = 'chat-text';
+      textDiv.innerHTML = renderMarkdown(text);
+      div.appendChild(textDiv);
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+  }
+
+  // aplica o CSS gerado pela IA no editor + preview + flash visual
+  function applyCssFromAI(cssBlock, msgDiv, applyBtn){
+    cssInput.value = cssBlock; onCssChange(); updatePreview();
+    setStatus('CSS aplicado via IA', true);
+
+    // flash verde no editor (feedback visual)
+    editorWrap.classList.remove('flash');
+    void editorWrap.offsetWidth; // força reflow para reiniciar a animação
+    editorWrap.classList.add('flash');
+    setTimeout(() => editorWrap.classList.remove('flash'), 600);
+
+    // marca o botão como aplicado
+    if (applyBtn){
+      applyBtn.classList.remove('pulse');
+      applyBtn.classList.add('applied');
+      applyBtn.textContent = '✓ Aplicado';
+    }
+    // tag de status (compatibilidade)
+    if (msgDiv){
+      const row = msgDiv.querySelector('.apply-row');
+      if (row && !row.querySelector('.applied-tag')){
+        const tag = document.createElement('span');
+        tag.className = 'applied-tag'; tag.textContent = '';
+        row.appendChild(tag);
+      }
+    }
+  }
+
+  // extrai o bloco ```css ... ``` de um texto (robusto contra blocos incompletos)
+  function extractCssBlock(text){
+    const markers = ['```css', '```'];
+    for (const marker of markers){
+      const startIdx = text.indexOf(marker);
+      if (startIdx === -1) continue;
+      const after = text.slice(startIdx + marker.length);
+      const endIdx = after.indexOf('```');
+      if (endIdx === -1) continue; // bloco não fechou ainda
+      return after.slice(0, endIdx).trim();
+    }
+    return null;
+  }
+
+  // extrai o bloco ```patch ... ``` de um texto (robusto contra blocos incompletos)
+  function extractPatchBlock(text){
+    const startIdx = text.indexOf('```patch');
+    if (startIdx === -1) return null;
+    const after = text.slice(startIdx + '```patch'.length);
+    const endIdx = after.indexOf('```');
+    if (endIdx === -1) return null; // bloco não fechou ainda
+    return after.slice(0, endIdx).trim();
+  }
+
+  // faz parse do CSS em blocos: [{selector, block}]
+  function parseCssBlocks(cssText){
+    const blocks = [];
+    let i = 0;
+    while (i < cssText.length){
+      while (i < cssText.length && /\s/.test(cssText[i])) i++;
+      if (i >= cssText.length) break;
+      const selStart = i;
+      while (i < cssText.length && cssText[i] !== '{') i++;
+      if (i >= cssText.length) break;
+      const selector = cssText.slice(selStart, i).trim();
+      const blockStart = i;
+      let depth = 0;
+      while (i < cssText.length){
+        if (cssText[i] === '{') depth++;
+        else if (cssText[i] === '}'){ depth--; if (depth === 0){ i++; break; } }
+        i++;
+      }
+      const block = cssText.slice(blockStart, i);
+      if (selector) blocks.push({ selector, block });
+      while (i < cssText.length && /\s/.test(cssText[i])) i++;
+    }
+    return blocks;
+  }
+
+  // faz parse do patch no formato REPLACE/ADD/DELETE <seletor>
+  function parsePatch(patchText){
+    const ops = [];
+    const lines = patchText.split('\n');
+    let i = 0;
+    while (i < lines.length){
+      const m = lines[i].match(/^(REPLACE|ADD|DELETE)\s+(.+)$/);
+      if (!m){ i++; continue; }
+      const op = m[1], selector = m[2].trim();
+      i++;
+      const blockLines = [];
+      while (i < lines.length && !lines[i].match(/^(REPLACE|ADD|DELETE)\s+.+$/)){
+        blockLines.push(lines[i]); i++;
+      }
+      ops.push({ op, selector, block: blockLines.join('\n').trim() });
+    }
+    return ops;
+  }
+
+  // aplica o patch no CSS atual e retorna o CSS mesclado + lista de operações aplicadas
+  function applyPatchToCss(currentCss, patchText){
+    const ops = parsePatch(patchText);
+    if (!ops.length) return { merged: currentCss, applied: [] };
+    const blocks = parseCssBlocks(currentCss);
+    const selectorMap = {};
+    blocks.forEach((b, idx) => { if (!(b.selector in selectorMap)) selectorMap[b.selector] = idx; });
+    const applied = [];
+
+    for (const op of ops){
+      const sel = op.selector;
+      if (op.op === 'DELETE'){
+        if (sel in selectorMap){ blocks.splice(selectorMap[sel], 1);
+          blocks.forEach((b, idx) => { selectorMap[b.selector] = idx; });
+          applied.push({ op: 'DELETE', selector: sel });
+        }
+      } else if (op.op === 'REPLACE'){
+        if (sel in selectorMap){ blocks[selectorMap[sel]].block = op.block; applied.push({ op: 'REPLACE', selector: sel }); }
+        else { blocks.push({ selector: sel, block: op.block }); selectorMap[sel] = blocks.length - 1; applied.push({ op: 'ADD', selector: sel }); }
+      } else if (op.op === 'ADD'){
+        if (!(sel in selectorMap)){ blocks.push({ selector: sel, block: op.block }); selectorMap[sel] = blocks.length - 1; applied.push({ op: 'ADD', selector: sel }); }
+        else { blocks[selectorMap[sel]].block = op.block; applied.push({ op: 'REPLACE', selector: sel }); }
+      }
+    }
+    const merged = blocks.map(b => `${b.selector} ${b.block}`).join('\n\n');
+    return { merged, applied };
+  }
+
+  async function sendChat(){
+    const msg = chatInput.value.trim();
+    if (!msg || chatBusy) return;
+    chatBusy = true; chatSend.disabled = true;
+    chatInput.value = ''; chatInput.style.height = 'auto';
+
+    addChatMsg('user', msg);
+    chatHistory.push({ role: 'user', content: msg });
+    chatTyping.style.display = 'block';
+
+    // salva o CSS atual ANTES da IA alterar (para poder desfazer)
+    const cssBeforeAI = cssInput.value;
+
+    // cria a bolha da IA que será preenchida em streaming
+    const aiDiv = document.createElement('div');
+    aiDiv.className = 'chat-msg assistant';
+    chatMessages.appendChild(aiDiv);
+    let fullText = '';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: currentHtml,        // só referência — a IA NÃO pode alterar
+          css: cssInput.value,
+          message: msg,
+          history: chatHistory,
+          model: chatModelSelect.value,
+        })
+      });
+
+      if (!res.ok){
+        const err = await res.json().catch(() => ({}));
+        chatTyping.style.display = 'none';
+        aiDiv.textContent = `Erro: ${err.error || res.status}`;
+        return;
+      }
+
+      chatTyping.style.display = 'none';
+
+      // lê o stream SSE
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let streamError = null;
+
+      while (true){
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // mantém linha incompleta
+        for (const line of lines){
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6);
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.error){
+              streamError = evt.error;
+              break;
+            }
+            if (evt.delta){
+              fullText += evt.delta;
+              // mostra o texto conversacional chegando em tempo real (esconde o bloco patch)
+              const preview = fullText.replace(/```patch[\s\S]*?```/g, '').replace(/```css[\s\S]*?```/g, '').trim();
+              aiDiv.innerHTML = renderMarkdown(preview || '...');
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+          } catch (e){ /* ignora linha inválida */ }
+        }
+        if (streamError) break;
+      }
+
+      // processa qualquer dado restante no buffer
+      if (buffer.startsWith('data: ')){
+        try {
+          const evt = JSON.parse(buffer.slice(6));
+          if (evt.error) streamError = evt.error;
+          if (evt.delta) fullText += evt.delta;
+        } catch (e){ /* ignora */ }
+      }
+
+      if (streamError){
+        chatTyping.style.display = 'none';
+        aiDiv.textContent = `Erro: ${streamError}`;
+        return;
+      }
+
+      // modo auxiliar: só mostra o texto conversacional, não aplica nada
+      aiDiv.remove();
+      const cleanText = fullText.replace(/```patch[\s\S]*?```/g, '').replace(/```css[\s\S]*?```/g, '').trim() || fullText;
+      addChatMsg('assistant', cleanText);
+      chatHistory.push({ role: 'assistant', content: cleanText });
+      if (!chatPanel.classList.contains('open')) chatToggle.classList.add('has-new');
+    } catch (e){
+      chatTyping.style.display = 'none';
+      aiDiv.textContent = `Falha de conexão: ${e}`;
+    } finally {
+      chatBusy = false; chatSend.disabled = false;
+    }
+  }
+
+  chatSend.addEventListener('click', sendChat);
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
+  });
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(100, chatInput.scrollHeight) + 'px';
+  });
+
+  // ---------- chips de sugestão rápida ----------
+  document.querySelectorAll('.chat-suggestions .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chatInput.value = chip.dataset.msg;
+      sendChat();
+    });
+  });
+  // ---------- Gerar PDF ----------
+  const pdfBtn = document.getElementById('pdfBtn');
+  const pdfModal = document.getElementById('pdfModal');
+  const pdfCancelBtn = document.getElementById('pdfCancelBtn');
+  const pdfGenerateBtn = document.getElementById('pdfGenerateBtn');
+  const pdfPageSize = document.getElementById('pdfPageSize');
+  const pdfMarginTop = document.getElementById('pdfMarginTop');
+  const pdfMarginBottom = document.getElementById('pdfMarginBottom');
+  const pdfMarginLeft = document.getElementById('pdfMarginLeft');
+  const pdfMarginRight = document.getElementById('pdfMarginRight');
+
+  function openPdfModal(){ console.log('pdf: openPdfModal called', !!pdfModal); if (pdfModal) pdfModal.style.display = 'flex'; }
+  function closePdfModal(){ console.log('pdf: closePdfModal called'); if (pdfModal) pdfModal.style.display = 'none'; }
+  if (pdfBtn) pdfBtn.addEventListener('click', (e)=>{ console.log('pdfBtn clicked', e); try{ openPdfModal(); }catch(err){ console.error('pdfBtn handler error', err); } });
+  if (pdfCancelBtn) pdfCancelBtn.addEventListener('click', closePdfModal);
+  if (pdfModal) pdfModal.addEventListener('click', (e) => { if (e.target === pdfModal) closePdfModal(); });
+
+  async function generatePdfAndDownload(){
+    console.log('pdf: generatePdfAndDownload start');
+    setStatus('Gerando PDF...', true);
+    try {
+      const pageSize = (pdfPageSize && pdfPageSize.value) || 'A4';
+      const margins = {
+        top: Number((pdfMarginTop && pdfMarginTop.value) || 10),
+        bottom: Number((pdfMarginBottom && pdfMarginBottom.value) || 10),
+        left: Number((pdfMarginLeft && pdfMarginLeft.value) || 10),
+        right: Number((pdfMarginRight && pdfMarginRight.value) || 10),
+      };
+      const finalHtml = buildPreviewDoc(currentHtml, cssInput.value);
+      const res = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: finalHtml, css: cssInput.value, page_size: pageSize, margins })
+      });
+      if (!res.ok){
+        const err = await res.json().catch(()=>({}));
+        setStatus('Erro ao gerar PDF: ' + (err.error || res.status), false);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'relatorio.pdf'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      setStatus('PDF gerado e baixado', true);
+      closePdfModal();
+    } catch (e){
+      console.error('pdf: generate error', e);
+      setStatus('Falha ao gerar PDF: ' + e, false);
+    }
+  }
+  if (pdfGenerateBtn) pdfGenerateBtn.addEventListener('click', generatePdfAndDownload);
+})();
+</script>
+<script>
+  (function(){
+    const btn = document.getElementById('themeToggle');
+    const body = document.body;
+    function applyTheme(t){
+      if (t === 'light') body.setAttribute('data-theme','light'); else body.removeAttribute('data-theme');
+      localStorage.setItem('cssLiveLabTheme', t);
+      updateBtn();
+    }
+    function updateBtn(){
+      const t = localStorage.getItem('cssLiveLabTheme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      if (!btn) return;
+      btn.textContent = t === 'light' ? 'Tema: Claro' : 'Tema: Escuro';
+    }
+    if (btn) btn.addEventListener('click', ()=>{
+      const cur = body.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      applyTheme(cur === 'light' ? 'dark' : 'light');
+    });
+    const saved = localStorage.getItem('cssLiveLabTheme');
+    if (saved) applyTheme(saved); else {
+      const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      applyTheme(prefersLight ? 'light' : 'dark');
+    }
+  })();
+</script>
+</body>
+</html>

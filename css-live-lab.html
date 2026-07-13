@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>CSS Live Lab</title>
+<style>
+  :root{
+    --bg-0:#161616;
+    --bg-1:#1d1d1d;
+    --bg-2:#232323;
+    --line:#333333;
+    --text:#e4e4e4;
+    --text-dim:#8a8a8a;
+    --accent:#5fd0a3;
+    --accent-dim:#2f6b52;
+    --danger:#e2685f;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg-0);
+    color:var(--text);
+    font-family:var(--sans);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 18px;
+    background:var(--bg-1);
+    border-bottom:1px solid var(--line);
+    flex:none;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:var(--mono);
+    font-size:13px;
+    letter-spacing:.03em;
+  }
+  .brand .dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+  }
+  .brand b{font-weight:600;}
+  .brand span.sub{color:var(--text-dim); font-weight:400;}
+
+  .toolbar{display:flex; gap:8px; align-items:center;}
+  .btn{
+    appearance:none;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:12.5px;
+    padding:7px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+    transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:#4a4a4a; background:#282828;}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#0d1f18; font-weight:600;}
+  .btn.primary:hover{background:#74dcb2;}
+  .btn.ghost{background:transparent;}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .btn input[type=file]{display:none;}
+  .help-btn{width:34px; height:34px; padding:0; justify-content:center; border-radius:50%; font-size:15px; font-weight:700;}
+  .help-modal{position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; z-index:9999; padding:20px;}
+  .help-modal.open{display:flex;}
+  .help-card{width:min(460px, 100%); background:var(--bg-1); border:1px solid var(--line); border-radius:12px; box-shadow:0 18px 50px rgba(0,0,0,.45); padding:18px 18px 16px;}
+  .help-card h3{margin:0 0 8px; font-size:16px;}
+  .help-card p{margin:0 0 10px; color:var(--text-dim); font-size:13px; line-height:1.5;}
+  .help-card ul{margin:0 0 12px 18px; padding:0; color:var(--text); font-size:13px; line-height:1.6;}
+  .help-card .help-actions{display:flex; justify-content:flex-end;}
+
+  /* ---------- workbench ---------- */
+  .workbench{
+    flex:1;
+    display:flex;
+    min-height:0;
+  }
+  .pane{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+  .editor-pane{ flex-basis:44%; background:var(--bg-1); }
+  .preview-pane{ flex-basis:56%; background:#0f0f0f; }
+
+  .pane-header{
+    flex:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 14px;
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--text-dim);
+    border-bottom:1px solid var(--line);
+    background:var(--bg-1);
+  }
+  .pane-header .filename{color:var(--text);}
+
+  .resizer{
+    flex:none;
+    width:6px;
+    cursor:col-resize;
+    background:var(--bg-0);
+    position:relative;
+  }
+  .resizer::after{
+    content:"";
+    position:absolute;
+    top:0;bottom:0;left:2px;
+    width:2px;
+    background:var(--line);
+  }
+  .resizer:hover::after, .resizer.active::after{background:var(--accent);}
+
+  /* ---------- editor ---------- */
+  .editor-wrap{
+    position:relative;
+    flex:1;
+    min-height:0;
+    display:flex;
+  }
+  .gutter{
+    flex:none;
+    width:44px;
+    background:var(--bg-1);
+    color:#565656;
+    font-family:var(--mono);
+    font-size:12.5px;
+    line-height:20px;
+    text-align:right;
+    padding:12px 8px 12px 0;
+    overflow:hidden;
+    user-select:none;
+    border-right:1px solid var(--line);
+    white-space:pre;
+  }
+  .code-stack{
+    position:relative;
+    flex:1;
+    min-width:0;
+  }
+  .code-layer, #cssInput{
+    position:absolute;
+    inset:0;
+    margin:0;
+    padding:12px 16px;
+    font-family:var(--mono);
+    font-size:12.5px;
+    line-height:20px;
+    white-space:pre;
+    tab-size:2;
+  }
+  .code-layer{
+    overflow:hidden;
+    pointer-events:none;
+    color:var(--text);
+  }
+  .code-layer code{white-space:pre;}
+  #cssInput{
+    width:100%;
+    height:100%;
+    background:transparent;
+    color:transparent;
+    caret-color:#fff;
+    border:none;
+    outline:none;
+    resize:none;
+    overflow:auto;
+  }
+  #cssInput::selection{background:rgba(95,208,163,.28);}
+
+  .tok-comment{color:#6a7768; font-style:italic;}
+  .tok-string{color:#d3b96a;}
+  .tok-at{color:#c792ea;}
+  .tok-color{color:#79c0ff;}
+  .tok-prop{color:#5fd0a3;}
+  .tok-punct{color:#7d7d7d;}
+
+  .dropzone-hint{
+    position:absolute;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(95,208,163,.08);
+    border:2px dashed var(--accent);
+    color:var(--accent);
+    font-family:var(--mono);
+    font-size:13px;
+    pointer-events:none;
+    z-index:5;
+  }
+  .editor-wrap.dragging .dropzone-hint{display:flex;}
+
+  /* ---------- preview ---------- */
+  .viewport-toggle{display:flex; gap:4px;}
+  .vwbtn{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    font-family:var(--mono);
+    font-size:11px;
+    padding:4px 9px;
+    border-radius:5px;
+    cursor:pointer;
+  }
+  .vwbtn.active{border-color:var(--accent); color:var(--accent);}
+
+  .preview-frame-wrap{
+    flex:1;
+    min-height:0;
+    padding:18px;
+    display:flex;
+    overflow:auto;
+    background:
+      linear-gradient(45deg, #161616 25%, transparent 25%),
+      linear-gradient(-45deg, #161616 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #161616 75%),
+      linear-gradient(-45deg, transparent 75%, #161616 75%);
+    background-size:16px 16px;
+    background-position:0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color:#0f0f0f;
+  }
+  .preview-frame-inner{
+    margin:0 auto;
+    width:100%;
+    max-width:100%;
+    background:#fff;
+    box-shadow:0 0 0 1px rgba(255,255,255,.06), 0 20px 50px rgba(0,0,0,.5);
+    transition:max-width .2s ease;
+    display:flex;
+  }
+  #previewFrame{
+    width:100%;
+    height:100%;
+    min-height:600px;
+    border:none;
+    background:#fff;
+  }
+
+  /* ---------- statusbar ---------- */
+  .statusbar{
+    flex:none;
+    padding:5px 16px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-dim);
+    background:var(--bg-1);
+    border-top:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+  }
+  .statusbar .ok{color:var(--accent);}
+
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#3a3a3a; border-radius:6px;}
+  ::-webkit-scrollbar-thumb:hover{background:#4a4a4a;}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <b>CSS Live Lab</b>
+    </div>
+    <div class="toolbar">
+      <label class="btn">
+        Carregar HTML
+        <input type="file" id="htmlFile" accept=".html,.htm">
+      </label>
+      <label class="btn">
+        Carregar CSS
+        <input type="file" id="cssFile" accept=".css">
+      </label>
+      <button class="btn ghost" id="resetBtn">Restaurar original</button>
+      <button class="btn ghost" id="copyBtn">Copiar CSS</button>
+      <button class="btn primary" id="exportBtn">Exportar CSS</button>
+      <button class="btn ghost help-btn" id="helpBtn" title="Ajuda">?</button>
+    </div>
+  </div>
+
+  <div class="workbench" id="workbench">
+    <section class="pane editor-pane" id="editorPane">
+      <div class="pane-header">
+        <span class="filename" id="cssFileName">estilos.css</span>
+        <span id="cssMeta">0 linhas</span>
+      </div>
+      <div class="editor-wrap" id="editorWrap">
+        <div class="gutter" id="gutter">1</div>
+        <div class="code-stack">
+          <pre class="code-layer" id="codeLayer"><code id="highlighted"></code></pre>
+          <textarea id="cssInput" spellcheck="false" wrap="off"></textarea>
+        </div>
+        <div class="dropzone-hint">solte o arquivo .css aqui</div>
+      </div>
+    </section>
+
+    <div class="resizer" id="resizer"></div>
+
+    <section class="pane preview-pane" id="previewPane">
+      <div class="pane-header">
+        <span class="filename">Pré-visualização</span>
+      </div>
+      <div class="preview-frame-wrap">
+        <div class="preview-frame-inner" id="frameInner">
+          <iframe id="previewFrame" title="preview" sandbox="allow-same-origin allow-scripts"></iframe>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="statusbar">
+    <span id="statusText">Exemplo carregado — suba seu HTML e CSS para editar de verdade</span>
+    <span id="statusRight" class="ok">● live</span>
+  </div>
+
+  <div class="help-modal" id="helpModal" aria-hidden="true">
+    <div class="help-card">
+      <h3>Como usar a ferramenta</h3>
+      <p>Você pode montar e ajustar o layout em poucos passos:</p>
+      <ul>
+        <li>Carregue o seu HTML e CSS pelos botões do topo.</li>
+        <li>Edite o CSS no painel esquerdo e veja a pré-visualização à direita.</li>
+        <li>Use os botões de Templates para salvar ou restaurar versões.</li>
+        <li>Exporte o CSS quando estiver satisfeito com o resultado.</li>
+      </ul>
+      <div class="help-actions">
+        <button class="btn ghost" id="helpCloseBtn">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const htmlFileInput = document.getElementById('htmlFile');
+  const cssFileInput  = document.getElementById('cssFile');
+  const cssInput      = document.getElementById('cssInput');
+  const highlighted    = document.getElementById('highlighted');
+  const gutter         = document.getElementById('gutter');
+  const cssMeta        = document.getElementById('cssMeta');
+  const cssFileName    = document.getElementById('cssFileName');
+  const statusText     = document.getElementById('statusText');
+  const previewFrame   = document.getElementById('previewFrame');
+  const frameInner     = document.getElementById('frameInner');
+  const resetBtn       = document.getElementById('resetBtn');
+  const exportBtn      = document.getElementById('exportBtn');
+  const copyBtn        = document.getElementById('copyBtn');
+  const editorWrap     = document.getElementById('editorWrap');
+  const workbench      = document.getElementById('workbench');
+  const editorPane     = document.getElementById('editorPane');
+  const resizer        = document.getElementById('resizer');
+
+  const SAMPLE_HTML = `<div class="card">
+  <span class="tag">exemplo</span>
+  <h1>Edite o CSS ao lado</h1>
+  <p>Isto é um HTML de demonstração. Use os botões acima para carregar o seu próprio HTML e CSS.</p>
+  <button class="cta">Ação principal</button>
+</div>`;
+
+  const SAMPLE_CSS = `body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f2f1ec;
+  font-family: -apple-system, sans-serif;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 28px;
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #2f6b52;
+  background: #e3f6ec;
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 8px;
+  color: #1a1a1a;
+}
+
+p {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #5a5a5a;
+  margin: 0 0 18px;
+}
+
+.cta {
+  border: none;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}`;
+
+  let currentHtml = SAMPLE_HTML;
+  let originalCss = SAMPLE_CSS;
+  let loadedHtmlName = null;
+  let loadedCssName  = null;
+
+  // ---------- helpers ----------
+  function debounce(fn, delay){
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+  }
+
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function highlightCSS(raw){
+    const esc = escapeHtml(raw);
+    const regex = /(\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(@[\w-]+)|(#[0-9a-fA-F]{3,8}\b)|([a-zA-Z-][\w-]*)(?=\s*:)|([{}:;,])/g;
+    return esc.replace(regex, (m, comment, str, atrule, color, prop, punct) => {
+      if (comment) return `<span class="tok-comment">${m}</span>`;
+      if (str)     return `<span class="tok-string">${m}</span>`;
+      if (atrule)  return `<span class="tok-at">${m}</span>`;
+      if (color)   return `<span class="tok-color">${m}</span>`;
+      if (prop)    return `<span class="tok-prop">${m}</span>`;
+      if (punct)   return `<span class="tok-punct">${m}</span>`;
+      return m;
+    });
+  }
+
+  function buildPreviewDoc(html, css){
+    const styleTag = `<style id="__live_css__">\n${css}\n</style>`;
+    let doc = html;
+    if (/<\/head>/i.test(doc)) {
+      doc = doc.replace(/<\/head>/i, styleTag + '\n</head>');
+    } else if (/<head[^>]*>/i.test(doc)) {
+      doc = doc.replace(/(<head[^>]*>)/i, `$1\n${styleTag}`);
+    } else if (/<html[^>]*>/i.test(doc)) {
+      doc = doc.replace(/(<html[^>]*>)/i, `$1\n<head>${styleTag}</head>`);
+    } else {
+      doc = `<!DOCTYPE html><html><head>${styleTag}</head><body>\n${doc}\n</body></html>`;
+    }
+    return doc;
+  }
+
+  function updateGutter(){
+    const lines = cssInput.value.split('\n').length;
+    let out = '';
+    for (let i = 1; i <= lines; i++) out += i + '\n';
+    gutter.textContent = out;
+  }
+
+  function updateMeta(){
+    const lines = cssInput.value.split('\n').length;
+    const chars = cssInput.value.length;
+    cssMeta.textContent = `${lines} linhas · ${chars} caracteres`;
+  }
+
+  function updateHighlightLayer(){
+    highlighted.innerHTML = highlightCSS(cssInput.value) + '\n';
+  }
+
+  function syncScroll(){
+    gutter.scrollTop = cssInput.scrollTop;
+    document.getElementById('codeLayer').scrollTop = cssInput.scrollTop;
+    document.getElementById('codeLayer').scrollLeft = cssInput.scrollLeft;
+  }
+
+  function updatePreview(){
+    previewFrame.srcdoc = buildPreviewDoc(currentHtml, cssInput.value);
+  }
+  const scheduleUpdate = debounce(updatePreview, 150);
+
+  function onCssChange(){
+    updateGutter();
+    updateHighlightLayer();
+    updateMeta();
+    syncScroll();
+    scheduleUpdate();
+  }
+
+  function setStatus(msg, ok){
+    statusText.textContent = msg;
+    statusText.className = ok ? 'ok' : '';
+  }
+
+  // ---------- init ----------
+  cssInput.value = SAMPLE_CSS;
+  onCssChange();
+  updatePreview();
+
+  // ---------- events: editor ----------
+  cssInput.addEventListener('input', onCssChange);
+  cssInput.addEventListener('scroll', syncScroll);
+  cssInput.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = cssInput.selectionStart, end = cssInput.selectionEnd;
+      cssInput.value = cssInput.value.slice(0, start) + '  ' + cssInput.value.slice(end);
+      cssInput.selectionStart = cssInput.selectionEnd = start + 2;
+      onCssChange();
+    }
+  });
+
+  // ---------- file loading ----------
+  function readFile(file, cb){
+    const reader = new FileReader();
+    reader.onload = ev => cb(ev.target.result);
+    reader.readAsText(file);
+  }
+
+  function loadHtml(file){
+    readFile(file, text => {
+      currentHtml = text;
+      loadedHtmlName = file.name;
+      setStatus(`HTML carregado: ${loadedHtmlName}${loadedCssName ? ' · CSS: ' + loadedCssName : ''}`, true);
+      updatePreview();
+    });
+  }
+
+  function loadCss(file){
+    readFile(file, text => {
+      originalCss = text;
+      cssInput.value = text;
+      loadedCssName = file.name;
+      cssFileName.textContent = loadedCssName;
+      setStatus(`CSS carregado: ${loadedCssName}${loadedHtmlName ? ' · HTML: ' + loadedHtmlName : ''}`, true);
+      onCssChange();
+      updatePreview();
+    });
+  }
+
+  htmlFileInput.addEventListener('change', e => { if (e.target.files[0]) loadHtml(e.target.files[0]); });
+  cssFileInput.addEventListener('change',  e => { if (e.target.files[0]) loadCss(e.target.files[0]); });
+
+  // drag & drop onto editor pane
+  ['dragenter','dragover'].forEach(evt =>
+    editorWrap.addEventListener(evt, e => { e.preventDefault(); editorWrap.classList.add('dragging'); })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    editorWrap.addEventListener(evt, e => { e.preventDefault(); editorWrap.classList.remove('dragging'); })
+  );
+  editorWrap.addEventListener('drop', e => {
+    const files = Array.from(e.dataTransfer.files || []);
+    files.forEach(f => {
+      if (/\.css$/i.test(f.name)) loadCss(f);
+      else if (/\.html?$/i.test(f.name)) loadHtml(f);
+    });
+  });
+
+  // ---------- buttons ----------
+  resetBtn.addEventListener('click', () => {
+    cssInput.value = originalCss;
+    onCssChange();
+    updatePreview();
+    setStatus('CSS restaurado para a versão original carregada', true);
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const blob = new Blob([cssInput.value], { type: 'text/css' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const base = loadedCssName ? loadedCssName.replace(/\.css$/i, '') : 'estilos';
+    a.href = url;
+    a.download = `${base}-editado.css`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setStatus('CSS exportado com sucesso', true);
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(cssInput.value);
+      setStatus('CSS copiado para a área de transferência', true);
+    } catch (err) {
+      setStatus('Não foi possível copiar automaticamente — selecione e copie manualmente', false);
+    }
+  });
+
+  // ---------- viewport toggle ----------
+  document.querySelectorAll('.vwbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.vwbtn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      frameInner.style.maxWidth = btn.dataset.w;
+    });
+  });
+
+  // ---------- resizable split ----------
+  let resizing = false;
+  resizer.addEventListener('mousedown', () => {
+    resizing = true;
+    resizer.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    const rect = workbench.getBoundingClientRect();
+    let pct = ((e.clientX - rect.left) / rect.width) * 100;
+    pct = Math.min(75, Math.max(20, pct));
+    editorPane.style.flexBasis = pct + '%';
+  });
+  window.addEventListener('mouseup', () => {
+    if (resizing){
+      resizing = false;
+      resizer.classList.remove('active');
+      document.body.style.cursor = '';
+    }
+  });
+})();
+</script>
+</body>
+</html>
