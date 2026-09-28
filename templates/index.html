@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>CSS Live Lab</title>
+<title>Ultralims · Modelos de Relatório</title>
 <style>
   :root{
     --bg-0:#161616; --bg-1:#1d1d1d; --bg-2:#232323;
@@ -154,6 +154,51 @@
     box-shadow:0 0 6px var(--danger);
   }
 
+  /* editor HTML/CSS */
+  .editor-tabs{display:flex; gap:0; border:1px solid var(--line); border-radius:6px; overflow:hidden; margin-left:8px;}
+  .editor-tabs button{
+    background:transparent; border:none; color:var(--text-dim); font-family:var(--mono);
+    font-size:11px; padding:4px 10px; cursor:pointer;
+  }
+  .editor-tabs button.active{background:var(--accent); color:var(--accent-contrast); font-weight:600;}
+
+  /* painel de variáveis */
+  .var-panel{
+    position:absolute; top:100%; right:16px; margin-top:6px;
+    width:380px; max-height:520px; overflow:auto;
+    background:var(--bg-2); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 12px 30px rgba(0,0,0,.5);
+    padding:10px; display:none; z-index:55;
+  }
+  .var-panel.open{display:block;}
+  .var-panel h4{margin:4px 0 8px; font-size:12px; font-family:var(--mono); color:var(--text-dim); font-weight:500;}
+  .var-item{
+    display:flex; align-items:center; justify-content:space-between; gap:6px;
+    padding:6px 8px; border-radius:6px; font-size:12.5px; border:1px solid transparent;
+  }
+  .var-item:hover{background:var(--bg-1); border-color:var(--line);}
+  .var-item .token{
+    font-family:var(--mono); font-size:11px; color:var(--accent);
+    background:rgba(95,208,163,.08); padding:1px 5px; border-radius:4px;
+    flex:none;
+  }
+  .var-item .hint{display:block; color:var(--text-dim); font-size:11px; margin-top:2px;}
+  .var-sugg{
+    border:1px solid var(--line); background:var(--bg-1); border-radius:6px;
+    padding:8px; margin-bottom:6px; font-size:12px;
+  }
+  .var-sugg .orig{color:var(--text-dim); font-family:var(--mono); font-size:11px; word-break:break-all;}
+  .var-sugg .arrow{color:var(--text-dim); margin:4px 0; font-size:11px;}
+  .var-map-row{display:flex; gap:6px; margin-bottom:6px;}
+  .var-map-row input, .var-map-row select{
+    background:var(--bg-1); border:1px solid var(--line); color:var(--text);
+    border-radius:6px; padding:5px 7px; font-size:12px; font-family:var(--sans);
+  }
+  .var-map-row input{flex:1;}
+  .var-map-row select{flex:1.2;}
+  .var-empty{color:var(--text-dim); font-size:12px; padding:8px 4px;}
+  .pdf-status{font-size:11.5px; color:var(--text-dim); padding:4px 8px;}
+
   .chat-panel{
     position:fixed; right:16px; bottom:74px; z-index:61;
     width:380px; max-width:calc(100vw - 32px); height:540px; max-height:calc(100vh - 96px);
@@ -287,26 +332,55 @@
   <div class="topbar">
     <div class="brand">
       <span class="dot"></span>
-      <b>CSS Live Lab</b>
+      <b>Ultralims · Modelos</b>
+      <span class="sub">Relatórios</span>
     </div>
     <div class="toolbar">
-      <label class="btn">Carregar HTML<input type="file" id="htmlFile" accept=".html,.htm"></label>
-      <label class="btn">Carregar CSS<input type="file" id="cssFile" accept=".css"></label>
+      <label class="btn primary" title="Importar PDF base do cliente">Importar PDF<input type="file" id="pdfFile" accept=".pdf,application/pdf"></label>
+      <select id="pdfMode" class="btn" style="padding:6px 8px;" title="Como gerar o HTML a partir do PDF">
+        <option value="fluxo">PDF → tabelas</option>
+        <option value="layout">PDF → layout fiel</option>
+      </select>
+      <label class="btn">HTML<input type="file" id="htmlFile" accept=".html,.htm"></label>
+      <label class="btn">CSS<input type="file" id="cssFile" accept=".css"></label>
       <button class="btn ghost" id="tplToggleBtn">Templates</button>
-      <button class="btn ghost" id="resetBtn">Restaurar original</button>
+      <button class="btn ghost" id="varToggleBtn" title="Mapear variáveis Ultralims">Variáveis</button>
+      <button class="btn ghost" id="resetBtn">Restaurar</button>
       <button class="btn ghost" id="copyBtn">Copiar CSS</button>
-      <button class="btn primary" id="exportBtn">Exportar CSS</button>
-      <button class="btn primary" id="pdfBtn">Gerar PDF</button>
+      <button class="btn ghost" id="exportCssBtn">Exportar CSS</button>
+      <button class="btn primary" id="exportHtmlBtn" title="HTML+CSS para colar no Codex">Exportar HTML</button>
+      <button class="btn ghost" id="pdfBtn">Gerar PDF</button>
       <button class="btn ghost" id="themeToggle" title="Alternar tema">Tema</button>
       <button class="btn ghost help-btn" id="helpBtn" title="Ajuda">?</button>
     </div>
 
     <div class="tpl-panel" id="tplPanel">
       <div class="tpl-save-row">
-        <input type="text" id="tplNameInput" placeholder="nome do template (ex: Aceite de Proposta)">
+        <input type="text" id="tplNameInput" placeholder="nome do modelo (ex: Ensaio horizontal)">
         <button class="btn primary small" id="tplSaveBtn">Salvar atual</button>
       </div>
       <div class="tpl-list" id="tplList"></div>
+    </div>
+
+    <div class="var-panel" id="varPanel">
+      <h4>Mapear trecho do PDF → variável</h4>
+      <div class="var-map-row">
+        <input type="text" id="mapFind" placeholder="texto exato no HTML">
+        <select id="mapReplace">
+          <option value="">escolher variável…</option>
+        </select>
+      </div>
+      <div class="var-map-row">
+        <input type="text" id="mapCustomToken" placeholder="ou token livre {{ou_nome}}">
+        <button class="btn primary small" id="mapApplyBtn">Aplicar</button>
+      </div>
+
+      <h4 style="margin-top:12px">Sugestões do PDF</h4>
+      <div id="varSuggestions"><div class="var-empty">Importe um PDF para ver sugestões</div></div>
+
+      <h4 style="margin-top:12px">Catálogo</h4>
+      <div id="varCatalog"><div class="var-empty">Carregando…</div></div>
+      <div class="pdf-status" id="varHint">Tokens são sugestões — confira o nome em Gerais → Relatórios e Variáveis → Variável Relatório.</div>
     </div>
   </div>
 
@@ -314,6 +388,10 @@
     <section class="pane editor-pane" id="editorPane">
       <div class="pane-header">
         <span class="filename" id="cssFileName">estilos.css</span>
+        <span class="editor-tabs">
+          <button type="button" id="tabCss" class="active" data-mode="css">CSS</button>
+          <button type="button" id="tabHtml" data-mode="html">HTML</button>
+        </span>
         <span id="cssMeta">0 linhas</span>
       </div>
       <div class="editor-wrap" id="editorWrap">
@@ -322,7 +400,7 @@
           <pre class="code-layer" id="codeLayer"><code id="highlighted"></code></pre>
           <textarea id="cssInput" spellcheck="false" wrap="off"></textarea>
         </div>
-        <div class="dropzone-hint">solte o arquivo .css aqui</div>
+        <div class="dropzone-hint">solte .html ou .css aqui</div>
       </div>
     </section>
 
@@ -341,19 +419,20 @@
   </div>
 
   <div class="statusbar">
-    <span id="statusText">Exemplo carregado — suba seu HTML e CSS para editar de verdade</span>
+    <span id="statusText">Importe o PDF do cliente ou carregue HTML/CSS para montar o Relatório Padrão</span>
     <span id="statusRight" class="ok">● live</span>
   </div>
 
   <div class="help-modal" id="helpModal" aria-hidden="true">
     <div class="help-card">
-      <h3>Como usar a ferramenta</h3>
-      <p>Você pode montar e ajustar o layout em poucos passos:</p>
+      <h3>Montar Relatório Padrão (Ultralims)</h3>
+      <p>Fluxo para configurar um modelo a partir do PDF do cliente:</p>
       <ul>
-        <li>Carregue o seu HTML e CSS pelos botões do topo.</li>
-        <li>Edite o CSS no painel esquerdo e veja a pré-visualização à direita.</li>
-        <li>Use os botões de Templates para salvar ou restaurar versões.</li>
-        <li>Exporte o CSS quando estiver satisfeito com o resultado.</li>
+        <li><strong>Importar PDF</strong> — gera HTML rascunho (tabelas ou layout fiel).</li>
+        <li>Edite <strong>HTML</strong> e <strong>CSS</strong> no painel esquerdo; veja o preview.</li>
+        <li>Abra <strong>Variáveis</strong> para trocar datas, CNPJ, valores etc. por <code>{{tokens}}</code>.</li>
+        <li><strong>Exportar HTML</strong> → cole no Codex: <em>Gerais → Relatórios e Variáveis → Relatório Padrão</em>.</li>
+        <li>Use <strong>Gerar PDF</strong> só para conferir o layout localmente.</li>
       </ul>
       <div class="help-actions">
         <button class="btn ghost" id="helpCloseBtn">Fechar</button>
@@ -384,28 +463,27 @@
   </div>
 
   <!-- Chat IA -->
-  <button class="chat-toggle" id="chatToggle" title="Chat com IA para ajustar o CSS">✦</button>
+  <button class="chat-toggle" id="chatToggle" title="Assistente de relatório Ultralims">✦</button>
   <div class="chat-panel" id="chatPanel">
     <div class="chat-header">
-      <div class="title"><span class="dot"></span> IA CSS <span class="sub" style="color:var(--text-dim);font-weight:400;"></span></div>
+      <div class="title"><span class="dot"></span> IA Relatório <span class="sub" style="color:var(--text-dim);font-weight:400;"></span></div>
       <div style="display:flex; align-items:center; gap:6px;">
         <select id="chatModelSelect" title="Modelo"></select>
         <button class="chat-close" id="chatClose" title="Fechar">✕</button>
       </div>
     </div>
     <div class="chat-messages" id="chatMessages">
-      <div class="chat-msg system">A IA é um auxiliar: ela orienta onde e o que alterar no CSS. Você faz as mudanças manualmente no editor. O HTML nunca é alterado.</div>
+      <div class="chat-msg system">Auxiliar de modelo Ultralims: orienta CSS/estrutura e variáveis. Confirme os nomes das variáveis no Codex.</div>
     </div>
     <div class="chat-typing" id="chatTyping" style="display:none;"><span></span><span></span><span></span></div>
     <div class="chat-suggestions" id="chatSuggestions">
-      <span class="chip" data-msg="deixe o card maior e com sombra mais suave">deixe o card maior</span>
-      <span class="chip" data-msg="mude a cor de fundo para azul escuro">fundo azul escuro</span>
-      <span class="chip" data-msg="centralize o botão e deixe-o arredondado">centralizar botão</span>
-      <span class="chip" data-msg="adicione uma animação de hover no botão">hover no botão</span>
-      <span class="chip" data-msg="deixe o layout responsivo para mobile">responsivo mobile</span>
+      <span class="chip" data-msg="como mapear a data de amostragem como variável Ultralims?">mapear data</span>
+      <span class="chip" data-msg="monte uma tabela de resultados estilo relatório Ultralims">tabela resultados</span>
+      <span class="chip" data-msg="quais classes comuns os relatórios Ultralims usam?">classes Ultralims</span>
+      <span class="chip" data-msg="deixe o cabeçalho do relatório mais legível no PDF">cabeçalho</span>
     </div>
     <div class="chat-input-row">
-      <textarea id="chatInput" placeholder="Descreva a mudança no CSS..." rows="1"></textarea>
+      <textarea id="chatInput" placeholder="Ex: como colocar a data de amostragem na tabela…" rows="1"></textarea>
       <button class="chat-send" id="chatSend" title="Enviar">➤</button>
     </div>
     <div class="chat-hint">Enter envia · Shift+Enter quebra linha</div>
@@ -424,7 +502,8 @@
   const previewFrame   = document.getElementById('previewFrame');
   const frameInner     = document.getElementById('frameInner');
   const resetBtn       = document.getElementById('resetBtn');
-  const exportBtn      = document.getElementById('exportBtn');
+  const exportCssBtn   = document.getElementById('exportCssBtn');
+  const exportHtmlBtn  = document.getElementById('exportHtmlBtn');
   const copyBtn        = document.getElementById('copyBtn');
   const editorWrap     = document.getElementById('editorWrap');
   const workbench      = document.getElementById('workbench');
@@ -492,6 +571,9 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
   let originalCss = SAMPLE_CSS;
   let loadedHtmlName = null;
   let loadedCssName  = null;
+  let editorMode = 'css'; // 'css' | 'html'
+  let lastImportSuggestions = [];
+  let variableCatalog = [];
 
   function debounce(fn, delay){ let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), delay); }; }
   function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -510,6 +592,15 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
     });
   }
 
+  function highlightHTML(raw){
+    const esc = escapeHtml(raw);
+    return esc
+      .replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="tok-comment">$1</span>')
+      .replace(/(&lt;\/?)([\w:-]+)/g, '$1<span class="tok-at">$2</span>')
+      .replace(/([\w:-]+)=("[^"]*")/g, '<span class="tok-prop">$1</span>=<span class="tok-string">$2</span>')
+      .replace(/(\{\{[^}]+\}\})/g, '<span class="tok-color">$1</span>');
+  }
+
   function buildPreviewDoc(html, css){
     const styleTag = `<style id="__live_css__">\n${css}\n</style>`;
     let doc = html;
@@ -520,15 +611,44 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
     return doc;
   }
 
+  function getEditorSource(){ return editorMode === 'html' ? currentHtml : cssInput.value; }
+
+  function setEditorMode(mode){
+    if (mode === editorMode) return;
+    // grava o conteúdo atual no buffer correto antes de trocar
+    if (editorMode === 'css') originalCss = cssInput.value;
+    else currentHtml = cssInput.value;
+
+    if (mode === 'html'){
+      editorMode = 'html';
+      cssInput.value = currentHtml;
+      cssFileName.textContent = loadedHtmlName || 'modelo.html';
+    } else {
+      editorMode = 'css';
+      cssInput.value = originalCss;
+      cssFileName.textContent = loadedCssName || 'estilos.css';
+    }
+    const tabCss = document.getElementById('tabCss');
+    const tabHtml = document.getElementById('tabHtml');
+    if (tabCss) tabCss.classList.toggle('active', editorMode === 'css');
+    if (tabHtml) tabHtml.classList.toggle('active', editorMode === 'html');
+    onCssChange();
+    setStatus(editorMode === 'html' ? 'Editando HTML do modelo' : 'Editando CSS do modelo', true);
+  }
+
   function updateGutter(){
-    const lines = cssInput.value.split('\n').length;
+    const lines = getEditorSource().split('\n').length;
     let out = ''; for (let i = 1; i <= lines; i++) out += i + '\n';
     gutter.textContent = out;
   }
   function updateMeta(){
-    cssMeta.textContent = `${cssInput.value.split('\n').length} linhas · ${cssInput.value.length} caracteres`;
+    const src = getEditorSource();
+    cssMeta.textContent = `${src.split('\n').length} linhas · ${src.length} caracteres`;
   }
-  function updateHighlightLayer(){ highlighted.innerHTML = highlightCSS(cssInput.value) + '\n'; }
+  function updateHighlightLayer(){
+    const src = getEditorSource();
+    highlighted.innerHTML = (editorMode === 'html' ? highlightHTML(src) : highlightCSS(src)) + '\n';
+  }
   function syncScroll(){
     gutter.scrollTop = cssInput.scrollTop;
     document.getElementById('codeLayer').scrollTop = cssInput.scrollTop;
@@ -543,7 +663,15 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
   onCssChange();
   updatePreview();
 
-  cssInput.addEventListener('input', onCssChange);
+  const tabCssEl = document.getElementById('tabCss');
+  const tabHtmlEl = document.getElementById('tabHtml');
+  if (tabCssEl) tabCssEl.addEventListener('click', () => setEditorMode('css'));
+  if (tabHtmlEl) tabHtmlEl.addEventListener('click', () => setEditorMode('html'));
+
+  cssInput.addEventListener('input', () => {
+    if (editorMode === 'html') currentHtml = cssInput.value;
+    onCssChange();
+  });
   cssInput.addEventListener('scroll', syncScroll);
   cssInput.addEventListener('keydown', e => {
     if (e.key === 'Tab') {
@@ -551,6 +679,7 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
       const start = cssInput.selectionStart, end = cssInput.selectionEnd;
       cssInput.value = cssInput.value.slice(0, start) + '  ' + cssInput.value.slice(end);
       cssInput.selectionStart = cssInput.selectionEnd = start + 2;
+      if (editorMode === 'html') currentHtml = cssInput.value;
       onCssChange();
     }
   });
@@ -559,13 +688,19 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
   function loadHtml(file){
     readFile(file, text => {
       currentHtml = text; loadedHtmlName = file.name;
+      if (editorMode === 'html'){ cssInput.value = text; onCssChange(); }
       setStatus(`HTML carregado: ${loadedHtmlName}${loadedCssName ? ' · CSS: ' + loadedCssName : ''}`, true);
       updatePreview();
     });
   }
   function loadCss(file){
     readFile(file, text => {
-      originalCss = text; cssInput.value = text; loadedCssName = file.name;
+      originalCss = text; loadedCssName = file.name;
+      if (editorMode !== 'css'){
+        currentHtml = cssInput.value;
+        setEditorMode('css');
+      }
+      cssInput.value = text;
       cssFileName.textContent = loadedCssName;
       setStatus(`CSS carregado: ${loadedCssName}${loadedHtmlName ? ' · HTML: ' + loadedHtmlName : ''}`, true);
       onCssChange(); updatePreview();
@@ -580,14 +715,19 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
     Array.from(e.dataTransfer.files || []).forEach(f => {
       if (/\.css$/i.test(f.name)) loadCss(f);
       else if (/\.html?$/i.test(f.name)) loadHtml(f);
+      else if (/\.pdf$/i.test(f.name)) importPdf(f);
     });
   });
 
   resetBtn.addEventListener('click', () => {
+    if (editorMode === 'html'){
+      setStatus('No modo HTML, use um template salvo ou reimportar o PDF para restaurar', false);
+      return;
+    }
     cssInput.value = originalCss; onCssChange(); updatePreview();
     setStatus('CSS restaurado para a versão original carregada', true);
   });
-  exportBtn.addEventListener('click', () => {
+  if (exportCssBtn) exportCssBtn.addEventListener('click', () => {
     const blob = new Blob([cssInput.value], { type: 'text/css' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -597,10 +737,205 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
     URL.revokeObjectURL(url);
     setStatus('CSS exportado com sucesso', true);
   });
-  copyBtn.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(cssInput.value); setStatus('CSS copiado para a área de transferência', true); }
+  if (copyBtn) copyBtn.addEventListener('click', async () => {
+    const val = getEditorSource();
+    try { await navigator.clipboard.writeText(val); setStatus('Copiado para a área de transferência', true); }
     catch (err) { setStatus('Não foi possível copiar automaticamente — selecione e copie manualmente', false); }
   });
+
+  // ---------- Importar PDF do cliente ----------
+  const pdfFileInput = document.getElementById('pdfFile');
+  const pdfModeSel   = document.getElementById('pdfMode');
+
+  async function importPdf(file){
+    if (!file) return;
+    setStatus(`Lendo PDF: ${file.name}…`, true);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('mode', (pdfModeSel && pdfModeSel.value) || 'fluxo');
+    try {
+      const res = await fetch('/api/pdf/import', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok){
+        setStatus(data.error || `Erro ao importar PDF (${res.status})`, false);
+        return;
+      }
+      currentHtml = data.html || '';
+      loadedHtmlName = file.name.replace(/\.pdf$/i, '');
+      if (data.css){
+        originalCss = data.css;
+        if (editorMode === 'css'){
+          cssInput.value = data.css;
+          loadedCssName = loadedHtmlName + '.css';
+          cssFileName.textContent = loadedCssName;
+        }
+      }
+      lastImportSuggestions = data.suggestions || [];
+      setEditorMode('html');
+      cssInput.value = currentHtml;
+      cssFileName.textContent = file.name;
+      onCssChange(); updatePreview();
+      renderSuggestions(lastImportSuggestions);
+      openVarPanel();
+      setStatus(
+        `PDF importado: ${file.name} · ${(data.pages||[]).length} página(s) · ${data.line_count||0} linha(s) · ${lastImportSuggestions.length} sugestão(ões)`,
+        true
+      );
+    } catch (err) {
+      console.error(err);
+      setStatus('Falha ao importar PDF: ' + err, false);
+    }
+  }
+  if (pdfFileInput) pdfFileInput.addEventListener('change', e => {
+    if (e.target.files[0]) importPdf(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  // ---------- Exportar HTML Ultralims ----------
+  if (exportHtmlBtn) exportHtmlBtn.addEventListener('click', async () => {
+    if (editorMode === 'html') currentHtml = cssInput.value;
+    try {
+      const res = await fetch('/api/export/html', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: currentHtml, css: cssInput.value })
+      });
+      if (!res.ok){
+        const err = await res.json().catch(() => ({}));
+        setStatus(err.error || 'Erro ao exportar HTML', false);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const base = loadedHtmlName || 'modelo-ultralims';
+      a.href = url; a.download = `${base}-ultralims.html`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      setStatus('HTML exportado — cole no Codex (Relatório Padrão)', true);
+    } catch (e) {
+      setStatus('Falha ao exportar HTML: ' + e, false);
+    }
+  });
+
+  // ---------- Painel de variáveis ----------
+  const varPanel       = document.getElementById('varPanel');
+  const varToggleBtn   = document.getElementById('varToggleBtn');
+  const mapFind        = document.getElementById('mapFind');
+  const mapReplace     = document.getElementById('mapReplace');
+  const mapCustomToken = document.getElementById('mapCustomToken');
+  const mapApplyBtn    = document.getElementById('mapApplyBtn');
+  const varSuggestions = document.getElementById('varSuggestions');
+  const varCatalog     = document.getElementById('varCatalog');
+
+  function openVarPanel(){ if (varPanel) { varPanel.classList.add('open'); tplPanel.classList.remove('open'); } }
+  function closeVarPanel(){ if (varPanel) varPanel.classList.remove('open'); }
+
+  if (varToggleBtn) varToggleBtn.addEventListener('click', () => {
+    if (varPanel.classList.contains('open')) closeVarPanel();
+    else { openVarPanel(); refreshVariables(); }
+  });
+
+  async function refreshVariables(){
+    try {
+      const res = await fetch('/api/variables');
+      variableCatalog = await res.json();
+    } catch { variableCatalog = []; }
+    if (mapReplace){
+      mapReplace.innerHTML = '<option value="">escolher variável…</option>';
+      variableCatalog.forEach(v => {
+        const o = document.createElement('option');
+        o.value = v.token; o.textContent = v.label;
+        mapReplace.appendChild(o);
+      });
+    }
+    if (varCatalog){
+      if (!variableCatalog.length){
+        varCatalog.innerHTML = '<div class="var-empty">Catálogo indisponível</div>';
+      } else {
+        varCatalog.innerHTML = '';
+        variableCatalog.forEach(v => {
+          const row = document.createElement('div');
+          row.className = 'var-item';
+          row.innerHTML = `<div><div>${escapeHtml(v.label)}</div><span class="hint">${escapeHtml(v.hint || '')}</span></div><span class="token">${escapeHtml(v.token)}</span>`;
+          row.title = 'Clicar preenche o token livre';
+          row.addEventListener('click', () => {
+            mapCustomToken.value = v.token;
+            if (!mapFind.value) mapFind.focus();
+            setStatus(`Token pronto: ${v.token} — cole o trecho no campo da esquerda`, true);
+          });
+          varCatalog.appendChild(row);
+        });
+      }
+    }
+  }
+
+  function renderSuggestions(list){
+    if (!varSuggestions) return;
+    if (!list || !list.length){
+      varSuggestions.innerHTML = '<div class="var-empty">Nenhuma sugestão automática — use o mapeamento manual ou o catálogo</div>';
+      return;
+    }
+    varSuggestions.innerHTML = '';
+    list.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'var-sugg';
+      card.innerHTML = `
+        <div class="orig">${escapeHtml(s.original || s.find || '')}</div>
+        <div class="arrow">→ ${escapeHtml(s.token || '')}</div>
+        <button class="btn small">Aplicar no HTML</button>`;
+      card.querySelector('button').addEventListener('click', async () => {
+        const find = s.original || s.find;
+        const repl = s.token || s.replace;
+        if (!find) return;
+        await applyMap(find, repl);
+        card.style.opacity = '0.5';
+        card.querySelector('button').textContent = '✓ aplicado';
+        card.querySelector('button').disabled = true;
+      });
+      varSuggestions.appendChild(card);
+    });
+  }
+
+  async function applyMap(find, replace){
+    if (!find || !replace){ setStatus('Informe o trecho e a variável', false); return; }
+    if (editorMode === 'html') currentHtml = cssInput.value;
+    try {
+      const res = await fetch('/api/pdf/map', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: currentHtml, replacements: [{ find, replace }] })
+      });
+      const data = await res.json();
+      if (!res.ok){ setStatus(data.error || 'Erro ao mapear', false); return; }
+      currentHtml = data.html;
+      if (editorMode === 'html'){ cssInput.value = currentHtml; onCssChange(); }
+      updatePreview();
+      setStatus(`Variável aplicada: ${replace}`, true);
+    } catch (e) {
+      setStatus('Falha ao aplicar variável: ' + e, false);
+    }
+  }
+
+  if (mapApplyBtn) mapApplyBtn.addEventListener('click', () => {
+    const find = (mapFind.value || '').trim();
+    const token = (mapCustomToken.value || '').trim() || (mapReplace.value || '');
+    if (!find){ setStatus('Cole o texto exato que deve virar variável', false); return; }
+    if (!token){ setStatus('Escolha ou digite o token', false); return; }
+    applyMap(find, token);
+  });
+  if (mapReplace) mapReplace.addEventListener('change', () => {
+    if (mapReplace.value) mapCustomToken.value = mapReplace.value;
+  });
+
+  document.addEventListener('click', (e) => {
+    if (varPanel && varPanel.classList.contains('open')){
+      if (!varPanel.contains(e.target) && e.target !== varToggleBtn) closeVarPanel();
+    }
+  });
+
+  refreshVariables();
+  renderSuggestions([]);
 
   document.querySelectorAll('.vwbtn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -652,8 +987,10 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
     const data = await res.json();
     currentHtml = data.html || '';
     originalCss = data.css || '';
-    cssInput.value = originalCss;
+    loadedHtmlName = data.name;
     loadedCssName = data.name;
+    if (editorMode !== 'css') setEditorMode('css');
+    cssInput.value = originalCss;
     cssFileName.textContent = data.name;
     onCssChange(); updatePreview();
     setStatus(`Template "${data.name}" carregado`, true);
@@ -662,10 +999,12 @@ p { font-size: 13.5px; line-height: 1.5; color: #5a5a5a; margin: 0 0 18px; }
 
   async function saveTemplateAs(name){
     if (!name.trim()){ setStatus('Digite um nome para salvar o template', false); return; }
+    if (editorMode === 'html') currentHtml = cssInput.value;
+    else originalCss = cssInput.value;
     await fetch(`/api/templates/${encodeURIComponent(name)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html: currentHtml, css: cssInput.value })
+      body: JSON.stringify({ html: currentHtml, css: originalCss })
     });
     setStatus(`Template "${name}" salvo`, true);
     tplNameInput.value = '';

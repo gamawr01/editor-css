@@ -1,15 +1,25 @@
-# CSS Live Lab
+# Modelos de Relatório Ultralims
 
-Aplicação web para editar CSS em tempo real com pré-visualização, templates, exportação de CSS e geração de PDF.
+Aplicação local para montar **Relatório Padrão** do Ultra LIMS a partir de um **PDF base do cliente** (PDF → HTML → variáveis → export).
 
 ## Funcionalidades
 
-- Editor de CSS com preview ao lado
-- Carregamento de HTML e CSS local
-- Salvamento e recuperação de templates
-- Exportação de CSS
-- Geração de PDF via wkhtmltopdf
-- Assistente com IA para sugestões de ajustes
+- **Importar PDF do cliente** e gerar rascunho HTML (modo fluxo em tabelas ou layout fiel)
+- Editor de **HTML e CSS** com preview ao lado
+- **Catálogo de variáveis** e sugestões automáticas (data, CNPJ, e-mail, nº de relatório…)
+- Exportar **HTML final** embutindo o CSS (para colar no Codex Ultralims)
+- Templates salvos, geração de PDF de conferência (wkhtmltopdf)
+- Assistente com IA orientado a modelos de relatório Ultra LIMS
+
+## Fluxo típico
+
+1. **Importar PDF** do cliente (ou carregar HTML/CSS existente)
+2. Ajustar estrutura no editor HTML/CSS
+3. Abrir **Variáveis** → mapear trechos dinâmicos para `{{tokens}}`
+4. Conferir no preview / Gerar PDF
+5. **Exportar HTML Ultralims** e colar em *Gerais → Relatórios e Variáveis → Relatório Padrão*
+
+> Os `{{tokens}}` são sugestões: confirme o nome exato da **Variável Relatório** no sistema.
 
 ## Requisitos
 
@@ -35,21 +45,27 @@ A aplicação ficará disponível em http://127.0.0.1:5000.
 
 ## Variáveis de ambiente
 
-Crie um arquivo .env com as variáveis abaixo, se quiser usar a integração com IA:
+Crie um arquivo `.env` para habilitar o assistente de IA. Todos os provedores suportados usam o protocolo da OpenAI, então trocar de provedor é só mudar `LLM_PROVIDER`:
 
 ```env
-NVIDIA_API_KEY=sua_chave
-NVIDIA_MODEL=z-ai/glm-5.2
+LLM_PROVIDER=groq         # groq | nvidia | gemini | cerebras | ollama
+LLM_API_KEY=sua_chave
+# LLM_MODEL=openai/gpt-oss-120b   # opcional, sobrepõe o padrão do provedor
+# LLM_BASE_URL=                       # opcional, sobrepõe a URL base
 ```
+
+Onde obter a chave: Groq em https://console.groq.com/keys, NVIDIA NIM em https://build.nvidia.com, Gemini em https://aistudio.google.com/apikey, Cerebras em https://cloud.cerebras.ai. O Ollama roda local e não precisa de chave.
 
 ## Estrutura principal
 
 - app.py: aplicação Flask
+- pdf_import.py: extração de PDF do cliente → HTML + sugestão de variáveis
 - templates/index.html: interface principal
-- index.html: versão estática para uso direto
-- css-live-lab.html: versão alternativa da interface
+- AI_CONTEXT.md: system prompt do assistente
 - saved_templates/: templates salvos pelo usuário
 
 ## Observação
 
 Para gerar PDFs, o executável wkhtmltopdf.exe deve estar disponível junto ao projeto ou no PATH do sistema.
+
+PDFs **escaneados (imagem)** não têm texto: use OCR antes ou carregue HTML/Word do cliente.

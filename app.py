@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 from openai import OpenAI
 
+from pdf_import import VARIABLE_CATALOG, extract_pdf_to_html, map_tokens_in_html
+
 # detecta se está rodando como .exe (PyInstaller) ou em desenvolvimento
 if getattr(sys, "frozen", False):
     # modo .exe: arquivos embutidos ficam em sys._MEIPASS (pasta temporária)
@@ -25,11 +27,56 @@ else:
 # carrega .env embutido no exe, ou da pasta de desenvolvimento
 load_dotenv(BUNDLE_DIR / ".env")
 
-NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "z-ai/glm-5.2")
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+# ---- provedor de LLM do chat (todos falam o protocolo da OpenAI) ----
+# Para trocar de provedor, mude LLM_PROVIDER no .env — não precisa mexer no código.
+PROVIDERS = {
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        "default_model": "openai/gpt-oss-120b",
+        "models": [
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.8-27b",
+            "groq/compound-mini",
+        ],
+    },
+    "nvidia": {
+        "base_url": "https://integrate.api.nvidia.com/v1",
+        "default_model": "z-ai/glm-5.3",
+        "models": [
+            "z-ai/glm-5.3",
+            "moonshotai/kimi-k3",
+            "nvidia/nemotron-3-super-120b-a12b",
+            "openai/gpt-oss-20b",
+            "meta/muse-glimmer-30b",
+            "google/gemma-4-31b-it",
+        ],
+    },
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "default_model": "gemini-2.5-flash",
+        "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+    },
+    "cerebras": {
+        "base_url": "https://api.cerebras.ai/v1",
+        "default_model": "llama-3.3-70b",
+        "models": ["llama-3.3-70b", "llama3.1-8b"],
+    },
+    "ollama": {
+        "base_url": "http://localhost:11434/v1",
+        "default_model": "qwen2.5-coder:7b",
+        "models": ["qwen2.5-coder:7b", "llama3.2", "mistral"],
+    },
+}
 
-client = OpenAI(base_url=NVIDIA_BASE_URL, api_key=NVIDIA_API_KEY) if NVIDIA_API_KEY else None
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").strip().lower()
+_provider = PROVIDERS.get(LLM_PROVIDER, PROVIDERS["groq"])
+LLM_BASE_URL = os.getenv("LLM_BASE_URL") or _provider["base_url"]
+LLM_MODEL = os.getenv("LLM_MODEL") or _provider["default_model"]
+# o Ollama não usa chave, mas o SDK exige um valor não vazio
+LLM_API_KEY = os.getenv("LLM_API_KEY") or ("ollama" if LLM_PROVIDER == "ollama" else "")
+
+client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY) if LLM_API_KEY else None
 
 # templates e contexto vêm da pasta do bundle (embutidos no exe)
 BASE_DIR = BUNDLE_DIR
@@ -289,12 +336,12 @@ def chat():
     css = body.get("css", "")
     message = (body.get("message") or "").strip()
     history = body.get("history", [])
-    model = body.get("model") or NVIDIA_MODEL
+    model = body.get("model") or LLM_MODEL
 
     if not message:
         return jsonify({"error": "mensagem vazia"}), 400
     if not client:
-        return jsonify({"error": "NVIDIA_API_KEY não configurada no .env"}), 500
+        return jsonify({"error": f"LLM_API_KEY não configurada no .env (provedor: {LLM_PROVIDER})"}), 500
 
     messages = _build_messages(html, css, message, history)
 
@@ -389,19 +436,105 @@ def generate_pdf():
         Path(pdf_path).unlink(missing_ok=True)
 
 
+@app.route("/api/pdf/import", methods=["POST"])
+def import_client_pdf():
+    """Importa PDF do cliente e devolve HTML/CSS rascunho + sugestões de variáveis."""
+    if "file" not in request.files:
+        return jsonify({"error": "envie o campo 'file' com o PDF"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "arquivo vazio"}), 400
+    if not f.filename.lower().endswith(".pdf"):
+        return jsonify({"error": "aceitamos apenas .pdf"}), 400
+
+    data = f.read()
+    if not data:
+        return jsonify({"error": "arquivo vazio"}), 400
+    if not data.startswith(b"%PDF"):
+        return jsonify({"error": "conteúdo não parece ser um PDF válido"}), 400
+
+    mode = (request.form.get("mode") or "fluxo").strip().lower()
+    if mode not in ("fluxo", "layout"):
+        mode = "fluxo"
+
+    try:
+        result = extract_pdf_to_html(data, mode=mode)
+    except Exception as e:
+        return jsonify({"error": f"falha ao ler PDF: {e}"}), 500
+
+    if not result.get("has_text"):
+        return jsonify({
+            "error": "O PDF não tem camada de texto (provavelmente é imagem escaneada). "
+                     "Use OCR no arquivo ou carregue um HTML/Word do cliente.",
+            **{k: result[k] for k in ("mode", "pages", "has_text") if k in result},
+        }), 422
+
+    result["filename"] = f.filename
+    return jsonify(result)
+
+
+@app.route("/api/pdf/map", methods=["POST"])
+def apply_variable_map():
+    """Aplica trocas de trecho no HTML do modelo (ex.: valor → {{variavel}})."""
+    body = request.get_json(force=True, silent=True) or {}
+    html = body.get("html") or ""
+    replacements = body.get("replacements") or []
+    if not isinstance(replacements, list):
+        return jsonify({"error": "replacements deve ser uma lista"}), 400
+    new_html = map_tokens_in_html(html, replacements)
+    return jsonify({"html": new_html, "applied": len(replacements)})
+
+
+@app.route("/api/variables", methods=["GET"])
+def list_variables():
+    """Catálogo de variáveis sugeridas para montar o Relatório Padrão."""
+    return jsonify(VARIABLE_CATALOG)
+
+
+@app.route("/api/export/html", methods=["POST"])
+def export_html_document():
+    """Monta o documento HTML final (HTML + CSS embutido) para colar no Ultralims."""
+    body = request.get_json(force=True, silent=True) or {}
+    html = body.get("html") or ""
+    css = body.get("css") or ""
+    if not html.strip():
+        return jsonify({"error": "HTML vazio"}), 400
+
+    style_tag = f"<style>\n{css}\n</style>"
+    if "</head>" in html.lower():
+        final_html = html.replace("</head>", style_tag + "</head>", 1)
+    elif "<html" in html.lower():
+        final_html = html.replace("<head>", "<head>" + style_tag, 1)
+        if style_tag not in final_html:
+            final_html = html.replace("<body", style_tag + "\n<body", 1)
+    else:
+        final_html = (
+            "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n"
+            "<meta charset=\"utf-8\">\n"
+            + style_tag
+            + "\n</head>\n<body>\n"
+            + html
+            + "\n</body>\n</html>\n"
+        )
+    return Response(
+        final_html,
+        mimetype="text/html; charset=utf-8",
+        headers={
+            "Content-Disposition": "attachment; filename=modelo-ultralims.html",
+        },
+    )
+
+
 @app.route("/api/models", methods=["GET"])
 def list_models():
-    """Retorna alguns modelos gratuitos populares da NVIDIA NIM."""
-    return jsonify([
-        "z-ai/glm-5.2",
-        "meta/llama-3.3-70b-instruct",
-        "meta/llama-3.1-8b-instruct",
-        "meta/llama-3.1-405b-instruct",
-        "meta/llama-3.1-70b-instruct",
-        "mistralai/mistral-7b-instruct",
-        "mistralai/mixtral-8x7b-instruct",
-        "nvidia/llama-3.1-nemotron-70b-instruct",
-    ])
+    """Modelos de chat sugeridos no seletor (o modelo do .env vem primeiro)."""
+    models = []
+    if LLM_MODEL:
+        models.append(LLM_MODEL)
+    for m in _provider["models"]:
+        if m not in models:
+            models.append(m)
+    return jsonify(models)
 
 
 @app.route("/__debug_template", methods=["GET"])
@@ -430,8 +563,8 @@ def open_browser():
 if __name__ == "__main__":
     threading.Timer(1.0, open_browser).start()
     print("=" * 54)
-    print("  CSS Live Lab rodando em http://127.0.0.1:5000")
-    print("  Os templates salvos ficam em: saved_templates/")
+    print("  Modelos de Relatório Ultralims em http://127.0.0.1:5000")
+    print("  Templates em: saved_templates/")
     print("  Pressione CTRL+C para encerrar")
     print("=" * 54)
     app.run(host="127.0.0.1", port=5000, debug=False)
